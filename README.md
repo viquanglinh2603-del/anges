@@ -1,0 +1,1011 @@
+# Anges: An Efficient Open Source Engineering Assistant 
+
+Anges is an open-source engineering agent system designed to be install-and-go, but also highly hackable and minimalist.
+
+| Feature                         | **Anges**                                        | **Gemini CLI**       | **Claude Code**            |
+| ------------------------------- | ------------------------------------------------ | -------------------- | -------------------------- |
+| **Open Source**                 | ✅ Yes (MIT)                                      | ✅ Yes (Apache-2.0)   | ❌ No                       |
+| **CLI Support**                 | ✅ Native                                         | ✅ Native             | ✅ Native                   |
+| **Web UI**                      | ✅ Native                                         | ❌ No                 | ❌ No                       |
+| **Coding from phone**          | ✅ Through Web UI                                 | ❌ No                 | ❌ No                       |
+| **Customizable**               | ✅ Flexible interface and easy to hack (Python)   | ⚠️ Forkable on GitHub | ❌ Minified, not editable   |
+| **Recursive Agent Orchestration** | ✅ Yes                                         | ❌ No                 | ❌ No                       |
+| **Model Support**              | ✅ Any model (OpenAI, Claude, Gemini, DeepSeek, BYO) | ❌ Gemini only        | ❌ Claude only              |
+
+
+## Quick Start
+
+### Installation
+
+```bash
+# Install from PyPI
+pip install anges
+
+# Or install from source
+git clone https://github.com/totoleon/anges
+cd anges
+pip install -e .
+```
+
+### Basic Usage
+
+```bash
+# Interactive mode
+anges -i
+
+# Direct task execution
+anges -q "List all Python files in the current directory"
+
+# Task from file
+anges -f task_description.txt
+
+# Web interface
+anges ui --port 5000 --password your_password
+```
+
+## Why Anges
+
+### Problem Statement
+We are used to LLMs being advisors — they sit behind a chat box, waiting for copy-pasted context, offering suggestions you still have to run yourself.
+
+But what if you gave AI **real access** to your shell, tools, and working environment?
+
+What if it could **work alongside you**, not just talk to you?
+
+Anges turns that idea into a practical, hackable reality — giving LLMs controlled execution power while keeping engineers fully in the loop.
+
+
+### Key Benefits
+
+- **Real Automation, Not Just Advice**  
+  Anges doesn’t just suggest commands — it runs them for you, in a controlled way. It’s not a chatbot, it’s an actual assistant.
+
+- **No Lock-In**  
+  Use any model you want — Claude, OpenAI, Gemini, DeepSeek — all configurable. Swap them in or out. You’re in control.
+
+- **Multiple interfaces**  
+  Runs from the terminal and the UI. Access with terminal, in containers, or through the web interface.
+
+- **Hackable by Design**  
+  Written in Python. Modular and minimal. Everything is exposed. Nothing is hidden behind frameworks or abstractions.
+
+- **Multi-Agent Ready**  
+  Tasks can be decomposed, delegated, and recursively executed. Built-in orchestration with zero boilerplate.
+
+- **Logs Everything**  
+  Every command, every decision, every token if you want — all saved to an event stream you can inspect or replay.
+
+---
+
+### Use Cases
+
+- **Engineering Assistants**  
+  Ask it to install packages, inspect logs, restart services, grep files, modify configs — all in one query.
+
+- **DevOps & Maintenance**  
+  Use it to maintain your dev box, update dependencies, clean up space, or automate boring infra chores.
+
+- **Data & File Workflows**  
+  Move, rename, clean, or parse files. Pipe things together. Build quick pipelines without writing scripts.
+
+- **Learning & Debugging**  
+  Watch how the agent breaks down a task and plans execution. Great for learning system tools or teaching LLMs.
+
+- **Custom Domain Agents**  
+  Want an agent that knows your codebase, product, or workflow? Fork it, wire in your logic, and go.
+
+
+## Core Design Concepts
+
+### Architecture Overview
+
+Anges follows a modular, event-driven architecture with distinct components for task interpretation, command generation, execution management, and result processing. The framework is built around four core concepts:
+
+1. **BaseAgent Lifecycle**: Manages agent creation, initialization, and execution flow
+2. **Event Stream**: Provides persistent state management and execution history
+3. **Action System**: Defines extensible actions for agent capabilities
+4. **Prompt Construction**: Builds contextual prompts from event history
+
+### BaseAgent Lifecycle
+
+The BaseAgent class serves as the foundation for all agent types in Anges, managing the complete lifecycle from initialization to task completion.
+
+#### Agent Initialization
+
+```python
+class BaseAgent:
+    def __init__(
+        self,
+        parent_ids=[],
+        inference_func=None,
+        event_stream=None,
+        cmd_init_dir=config.agents.default_agent.cmd_init_dir,
+        prefix_cmd="",
+        interrupt_check=None,
+        max_consecutive_actions_to_summarize=30,
+        logging_level=logging.DEBUG,
+        auto_entitle=False,
+    ):
+```
+
+**Key Initialization Components:**
+- **Event Stream**: Creates or inherits an EventStream for state persistence
+- **Inference Function**: LLM integration for decision making
+- **Execution Context**: Working directory and command prefix configuration
+- **Interrupt Handling**: Optional callback for graceful task interruption
+- **Summarization**: Automatic event summarization for long conversations
+
+#### Execution Flow
+
+The agent follows a structured execution loop:
+
+1. **Request Handling**: Processes new or follow-up requests
+2. **Event Creation**: Adds request events to the event stream
+3. **Decision Loop**: Continuously prompts LLM and executes actions until completion
+4. **Interruption Checks**: Monitors for user interrupts or execution limits
+5. **State Persistence**: Saves event stream after each significant action
+
+```python
+def run_with_new_request(self, task_description, event_stream=None):
+    # Initialize run configuration
+    run_config = self._build_run_config(task_description, event_stream)
+    
+    # Add new request to event stream
+    self._handle_received_new_request(run_config)
+    
+    while True:
+        # Check for interruptions
+        if self._check_interruption(run_config):
+            return event_stream
+            
+        # Check execution limits
+        if self._check_exhausted(run_config):
+            return event_stream
+            
+        # Get next action and execute
+        if self._prefict_next_event_and_handle_actions(event_stream, run_config):
+            return event_stream
+```
+
+### Event Stream System
+
+The Event Stream provides persistent state management and execution history, enabling agents to maintain context across complex, multi-step tasks.
+
+#### Event Structure
+
+Each event captures a discrete action or state change:
+
+```python
+class Event:
+    def __init__(self, type, reasoning="", content="", title=None, 
+                 message="", analysis="", est_input_token=0, est_output_token=0):
+        self.type = type              # Event classification
+        self.reasoning = reasoning    # Agent's reasoning (visible in history)
+        self.content = content        # Event content/results
+        self.message = message        # User-visible message
+        self.analysis = analysis      # Internal analysis (not shown to user)
+        self.created_at = datetime.now()
+```
+
+**Event Types:**
+- `new_request` / `follow_up_request`: User task requests
+- `action`: Shell command execution
+- `edit_file`: File modification operations
+- `task_completion`: Successful task completion
+- `task_interrupted`: Task interruption or failure
+- `agent_requested_help`: Agent requesting human assistance
+- `agent_text_response`: Agent providing informational responses
+
+#### EventStream Management
+
+```python
+class EventStream:
+    def __init__(self, title=None, uid=None, parent_event_stream_uids=None, agent_type=""):
+        self.events_list = []           # Chronological event sequence
+        self.event_summaries_list = []  # Summarized event ranges
+        self.uid = uid                  # Unique stream identifier
+        self.parent_event_stream_uids = parent_event_stream_uids  # Hierarchical relationships
+        self.agent_settings = {}        # Persistent agent configuration
+```
+
+**Key Features:**
+- **Persistence**: Automatic JSON serialization to disk
+- **Hierarchical Structure**: Support for parent-child agent relationships
+- **Event Summarization**: Automatic summarization of long event sequences
+- **Settings Management**: Persistent storage of agent configuration
+
+#### Event Summarization
+
+To manage long conversations, the system automatically summarizes events:
+
+- **Task Completion Summaries**: Generated when tasks complete
+- **Action Aggregation**: Summarizes sequences of related actions
+- **Configurable Thresholds**: Customizable summarization triggers
+
+### Agent Types
+
+The system supports multiple agent types optimized for different scenarios:
+
+#### Default Agent
+**Purpose**: General-purpose task execution with full action capabilities
+**Use Cases**: Complex multi-step tasks, file operations, system administration
+**Actions**: All available actions (shell commands, file editing, help requests)
+
+#### Task Executor
+**Purpose**: Focused command execution with minimal overhead
+**Use Cases**: Simple command execution, quick operations
+**Actions**: Primarily shell commands and basic responses
+
+#### Task Analyzer
+**Purpose**: Task decomposition and analysis without execution
+**Use Cases**: Planning, task breakdown, requirement analysis
+**Actions**: Text responses, analysis outputs
+
+#### Orchestrator
+**Purpose**: Complex workflow management with child agent coordination
+**Use Cases**: Multi-agent workflows, complex project management
+**Actions**: Child agent spawning, workflow coordination
+
+### Model Integration
+
+Flexible LLM integration supporting multiple providers with consistent interfaces and fallback mechanisms.
+
+#### Supported Providers
+- **Claude (Anthropic)**: Primary recommendation for complex reasoning
+- **OpenAI GPT**: Broad compatibility and performance
+- **Google Gemini**: Alternative provider with competitive capabilities
+
+#### Integration Architecture
+```python
+INFERENCE_FUNC_DICT = {
+    'claude': claude_inference,
+    'openai': openai_inference, 
+    'gemini': gemini_inference
+}
+```
+
+**Features:**
+- **Unified Interface**: Consistent API across all providers
+- **Configuration Management**: YAML-based model configuration
+- **Error Handling**: Graceful fallback and retry mechanisms
+- **Token Estimation**: Usage tracking and optimization
+
+### Safety and Control
+
+Built-in safeguards for command validation, execution monitoring, and error handling.
+
+#### Execution Safeguards
+- **Command Timeouts**: Configurable execution time limits
+- **Working Directory Control**: Isolated execution environments
+- **Command Prefixing**: Automatic command modification for safety
+- **Interrupt Handling**: Graceful task termination
+
+#### Error Management
+- **Comprehensive Logging**: Detailed execution tracking
+- **Error Recovery**: Automatic retry and fallback mechanisms
+- **State Persistence**: Recovery from unexpected failures
+- **User Notifications**: Clear error communication
+## Implementation Details
+
+### Command Line Interface
+
+Anges provides a unified CLI with multiple operation modes:
+
+#### Interactive Mode
+```bash
+anges [options]
+```
+### Action System
+
+The Action system provides a modular, extensible framework for defining agent capabilities through discrete, composable actions.
+
+#### Action Architecture
+
+All actions inherit from the base Action class:
+
+```python
+class Action:
+    def __init__(self):
+        self.type = ""                    # Action identifier
+        self.guide_prompt = ""            # LLM instruction text
+        self.user_visible = False         # Whether action results are shown to user
+        self.unique_action = False        # Whether action must be used alone
+        self.returning_action = False     # Whether action terminates the execution loop
+
+    def handle_action_in_parsed_response(self, run_config, parsed_response_dict, action_json):
+        raise NotImplementedError("Subclasses must implement this method")
+```
+
+#### Built-in Actions
+
+**RUN_SHELL_CMD**: Execute shell commands with timeout and background support
+- **Type**: Non-visible, non-unique
+- **Purpose**: System command execution
+- **Features**: Timeout control, background execution, output capture
+
+**EDIT_FILE**: Structured file operations (create, insert, replace, remove)
+- **Type**: Non-visible, non-unique  
+- **Purpose**: File content manipulation
+- **Operations**: NEW_FILE, INSERT_LINES, REMOVE_LINES, REPLACE_LINES
+
+**TASK_COMPLETE**: Signal successful task completion
+- **Type**: User-visible, unique, returning
+- **Purpose**: Task termination with summary
+- **Output**: Markdown-formatted completion report
+
+**HELP_NEEDED**: Request human assistance
+- **Type**: User-visible, unique, returning
+- **Purpose**: Escalation when agent is blocked
+- **Format**: Structured problem description with blocker, attempts, suggestions
+
+**AGENT_TEXT_RESPONSE**: Provide informational responses
+- **Type**: User-visible, unique, returning
+- **Purpose**: Answer questions or provide intermediate results
+- **Format**: Markdown-formatted text responses
+
+**READ_MIME_FILES**: Analyze multimedia content
+- **Type**: Non-visible, non-unique
+- **Purpose**: Process images, PDFs, videos using multimodal AI
+- **Capabilities**: Local files, YouTube links, content analysis
+
+#### Action Execution Flow
+
+1. **Prompt Construction**: Actions provide guide_prompt text for LLM instruction
+2. **Response Parsing**: Agent response is validated against available actions
+3. **Action Dispatch**: Appropriate action handler is called with parsed parameters
+4. **Event Creation**: Action results are stored as events in the event stream
+5. **State Management**: Event stream is updated and persisted
+6. **Flow Control**: Returning actions terminate the execution loop
+
+```python
+def _prefict_next_event_and_handle_actions(self, event_stream, run_config):
+    # Get LLM response with action selection
+    parsed_response_dict = self._prompt_and_get_action_from_response(event_stream)
+    
+    # Build action registry
+    registered_actions_dict = {ra.type.lower(): ra for ra in self.registered_actions}
+    called_actions_json = parsed_response_dict.get("actions", [])
+    
+    # Handle returning actions (terminate loop)
+    first_action = registered_actions_dict[called_actions_json[0].get("action_type").lower()]
+    if first_action.returning_action:
+        return first_action.handle_action_in_parsed_response(run_config, parsed_response_dict, called_actions_json[0])
+    
+    # Execute all non-returning actions
+    for action_json in called_actions_json:
+        action = registered_actions_dict.get(action_json.get("action_type").lower())
+        action.handle_action_in_parsed_response(run_config, parsed_response_dict, action_json)
+    
+    return None  # Continue execution loop
+```
+
+#### Action Extensibility
+
+New actions can be easily added by:
+1. **Inheriting from Action**: Implement the base class interface
+2. **Defining Guide Prompts**: Provide clear LLM instructions
+3. **Implementing Handlers**: Define action execution logic
+4. **Registering Actions**: Add to agent's action registry
+
+### Prompt Construction
+
+The prompt construction system builds contextual prompts from event history, enabling agents to maintain awareness of previous actions and current state.
+
+#### Prompt Template System
+
+Prompts are built using a template-based approach:
+
+```python
+def construct_prompt_for_event_stream(event_stream, prompt_template=None, agent_config=None):
+    # Build event history string
+    event_stream_string = construct_events_str_with_summary(event_stream, agent_config=agent_config)
+    
+    # Replace template placeholders
+    prompt = prompt_template.replace("PLACEHOLDER_EVENT_STREAM", event_stream_string)
+    
+    # Add context-specific instructions
+    if event_stream.events_list and event_stream.events_list[-1].type == "edit_file":
+        prompt += "\n<!!The last event was a file editing operation...>"
+    
+    return prompt
+```
+
+#### Event History Formatting
+
+Events are formatted into structured text for LLM consumption:
+
+```
+## Event 1 TYPE: NEW_REQUEST
+REASONING:
+[Agent's reasoning for this action]
+CONTENT:
+[Event content - command output, file changes, etc.]
+
+## Event 2 TYPE: ACTION  
+REASONING:
+[Why this command was executed]
+CONTENT:
+[Command output and results]
+```
+
+#### Content Management
+
+**Truncation Strategy**: Long content is truncated for older events while preserving recent context
+- **Recent Events**: Full content preserved (configurable threshold)
+- **Older Events**: Truncated with "...N lines omitted..." indicators
+- **Summaries**: Replace ranges of events with AI-generated summaries
+
+**Summary Integration**: Event summaries are seamlessly integrated into the prompt:
+
+```
+## Summary of Events 5 to 12
+[AI-generated summary of actions and results]
+
+## Event 13 TYPE: ACTION
+[Current event details]
+```
+
+#### Template Placeholders
+
+**PLACEHOLDER_EVENT_STREAM**: Replaced with formatted event history
+**PLACEHOLDER_ACTION_INSTRUCTIONS**: Replaced with available action documentation
+
+Example template structure:
+```
+# INSTRUCTION
+You are an AI agent...
+
+# EVENT STREAM
+PLACEHOLDER_EVENT_STREAM
+
+# AVAILABLE ACTIONS
+PLACEHOLDER_ACTION_INSTRUCTIONS
+```
+
+#### Context Optimization
+
+**Dynamic Content Limits**: Adjustable based on:
+- Model context window size
+- Task complexity requirements  
+- Performance considerations
+
+**Intelligent Summarization**: Automatic summarization triggers:
+- Task completion events
+- Consecutive action thresholds
+- Content length limits
+
+**State Preservation**: Critical state information is preserved across summarization:
+- Current working directory
+- Active file modifications
+- Error conditions
+- User preferences
+
+### Configuration Management
+- `--port`: Port number (default: 5000)
+- `--password`: Access password (required)
+
+### Web Interface
+
+The web interface provides a browser-based chat interface for remote agent interaction.
+
+#### Starting the Web Interface
+```bash
+anges ui --port 5000 --password your_secure_password
+```
+
+#### Access Methods
+- **Local**: `http://localhost:5000`
+- **Remote**: `http://your_server_ip:5000`
+
+#### Security Features
+- Password-protected access
+- HTTPS communication
+- Secure session management with Flask-Login
+- Remote access capabilities with proper authentication
+
+#### Interface Features
+- Real-time chat interface
+- Task progress monitoring
+- Command execution visibility
+- Session management
+- Multi-request support
+
+### Migration from Legacy Interfaces
+
+The unified CLI replaces previous separate interfaces:
+
+| Legacy Command | New Unified Command |
+|----------------|--------------------|
+| `python run_web_interface.py --password pass --port 5005` | `anges ui --password pass --port 5005` |
+| `python -m anges.cli_interface.cli_runner --input-file=task.txt` | `anges -f task.txt` |
+
+*[Additional implementation details to be expanded in subsequent sub-tasks]*
+
+## Examples
+
+### Basic Operations
+
+#### Interactive Task Execution
+```bash
+anges
+# Prompt: Please enter the task description:
+# Input: List all files in the current directory
+```
+
+#### Direct Task with Custom Configuration
+```bash
+anges -q "Find all Python files larger than 1MB" --model openai --path /project
+```
+
+#### File-Based Task Execution
+```bash
+# Create task file
+echo "Analyze disk usage and clean up temporary files" > cleanup_task.txt
+anges -f cleanup_task.txt
+```
+
+### Advanced Usage
+
+#### Custom Agent and Model Selection
+```bash
+anges --agent task_analyzer --model claude --logging debug
+```
+
+#### Web Interface with Custom Configuration
+```bash
+anges ui --host 0.0.0.0 --port 8080 --password secure_password_123
+```
+
+#### Continuing Previous Sessions
+```bash
+anges --existing_stream_id previous_session_id
+```
+
+### Real-World Scenarios
+
+#### Default Agent Usage
+
+**Basic Default Agent Example**
+```python
+#!/usr/bin/env python3
+"""Example: Using Default Agent for file system operations"""
+
+from anges.agents.default_agent import DefaultAgent
+from anges.agents.agent_utils.events import Event
+import logging
+
+# Create a default agent instance
+agent = DefaultAgent(
+    cmd_init_dir="/home/user/projects",
+    prefix_cmd="",
+    logging_level=logging.INFO,
+    auto_entitle=True
+)
+
+# Execute a simple task
+task_description = "List all Python files in the current directory and show their sizes"
+print(f"Executing task: {task_description}")
+
+# Add the task as a new request event
+event = Event(event_type="NEW_REQUEST", content=task_description)
+agent.event_stream.add_event(event)
+
+# Run the agent
+result = agent.run()
+print(f"Task completed with status: {agent.status}")
+
+# Access the event stream to see what happened
+for event in agent.event_stream.events:
+    print(f"Event: {event.event_type} - {event.content[:100]}...")
+```
+
+**Default Agent with Custom Configuration**
+```python
+#!/usr/bin/env python3
+"""Example: Default Agent with custom settings and error handling"""
+
+from anges.agents.default_agent import DefaultAgent
+from anges.agents.agent_utils.events import Event, EventStream
+from anges.utils.inference_api import INFERENCE_FUNC_DICT
+import logging
+
+def interrupt_check():
+    """Custom interrupt check function"""
+    # Add your custom interrupt logic here
+    return False
+
+# Create agent with custom configuration
+agent = DefaultAgent(
+    cmd_init_dir="/tmp/workspace",
+    prefix_cmd="sudo",  # Run commands with sudo
+    interrupt_check=interrupt_check,
+    max_consecutive_actions_to_summarize=5,
+    logging_level=logging.DEBUG,
+    auto_entitle=False
+)
+
+# Complex file management task
+task = """
+Create a backup directory structure:
+1. Create /tmp/backup/logs and /tmp/backup/configs
+2. Copy all .log files from /var/log to /tmp/backup/logs
+3. Create a summary report of copied files
+4. Set appropriate permissions (755 for directories, 644 for files)
+"""
+
+try:
+    # Add task event
+    event = Event(event_type="NEW_REQUEST", content=task)
+    agent.event_stream.add_event(event)
+    
+    # Execute the task
+    result = agent.run()
+    
+    if agent.status == "completed":
+        print("✅ Backup task completed successfully")
+        
+        # Save the event stream for later analysis
+        from anges.utils.data_handler import save_event_stream
+        save_event_stream(agent.event_stream, "backup_task_log.json")
+        
+    else:
+        print(f"❌ Task failed with status: {agent.status}")
+        
+except Exception as e:
+    print(f"Error executing task: {e}")
+    # Handle errors gracefully
+```
+
+#### Orchestrator Usage
+
+**Basic Orchestrator Example**
+```python
+#!/usr/bin/env python3
+"""Example: Using Orchestrator for complex multi-step workflows"""
+
+from anges.agents.orchestrator import Orchestrator
+from anges.agents.agent_utils.events import Event
+from anges.agents.agent_utils.agent_factory import AgentFactory, AgentConfig
+import logging
+
+# Create orchestrator with custom configuration
+orchestrator = Orchestrator(
+    cmd_init_dir="/home/user/development",
+    remaining_recursive_depth=3,  # Allow 3 levels of sub-agents
+    max_consecutive_actions_to_summarize=10,
+    logging_level=logging.INFO,
+    auto_entitle=True
+)
+
+# Complex development workflow task
+complex_task = """
+Set up a new Python project with the following requirements:
+1. Create project directory structure (src/, tests/, docs/, requirements/)
+2. Initialize git repository
+3. Create virtual environment and activate it
+4. Install development dependencies (pytest, black, flake8)
+5. Create basic project files (setup.py, README.md, .gitignore)
+6. Run initial code quality checks
+7. Create first commit with initial project structure
+"""
+
+print("Starting complex project setup workflow...")
+
+# Add the complex task
+event = Event(event_type="NEW_REQUEST", content=complex_task)
+orchestrator.event_stream.add_event(event)
+
+# Execute the workflow
+result = orchestrator.run()
+
+print(f"Workflow completed with status: {orchestrator.status}")
+
+# The orchestrator automatically manages sub-agents and coordinates the workflow
+print(f"Total events processed: {len(orchestrator.event_stream.events)}")
+print(f"Orchestrator UID: {orchestrator.uid}")
+```
+
+**Advanced Orchestrator with Agent Factory**
+```python
+#!/usr/bin/env python3
+"""Example: Advanced Orchestrator usage with AgentFactory"""
+
+from anges.agents.agent_utils.agent_factory import AgentFactory, AgentConfig, AgentType
+from anges.agents.agent_utils.events import Event
+from anges.utils.data_handler import save_event_stream, read_event_stream
+import logging
+import os
+
+def setup_monitoring_system():
+    """Set up a comprehensive monitoring system using Orchestrator"""
+    
+    # Create agent configuration
+    config = AgentConfig(
+        agent_type=AgentType.ORCHESTRATOR.value,
+        cmd_init_dir=os.getcwd(),
+        prefix_cmd="",
+        logging_level=logging.INFO,
+        auto_entitle=True,
+        remaining_recursive_depth=4,
+        orchestrator_config={
+            'remaining_recursive_depth': 4,
+            'max_consecutive_actions_to_summarize': 15
+        }
+    )
+    
+    # Create orchestrator using factory
+    factory = AgentFactory()
+    orchestrator = factory.create_agent(config)
+    
+    # Complex monitoring setup task
+    monitoring_task = """
+    Set up a comprehensive system monitoring solution:
+    
+    Phase 1: System Metrics Collection
+    - Install and configure system monitoring tools (htop, iotop, nethogs)
+    - Set up log rotation for system logs
+    - Create custom scripts to collect CPU, memory, and disk metrics
+    
+    Phase 2: Log Analysis Setup
+    - Configure centralized logging
+    - Set up log parsing and analysis tools
+    - Create alerting rules for critical system events
+    
+    Phase 3: Dashboard and Reporting
+    - Generate system health reports
+    - Create automated daily/weekly summary emails
+    - Set up real-time monitoring dashboard
+    
+    Phase 4: Automation and Maintenance
+    - Create cron jobs for regular maintenance tasks
+    - Set up automated cleanup procedures
+    - Configure backup verification and reporting
+    """
+    
+    print("🚀 Starting comprehensive monitoring system setup...")
+    
+    # Add the complex task
+    event = Event(event_type="NEW_REQUEST", content=monitoring_task)
+    orchestrator.event_stream.add_event(event)
+    
+    # Execute the comprehensive workflow
+    try:
+        result = orchestrator.run()
+        
+        if orchestrator.status == "completed":
+            print("✅ Monitoring system setup completed successfully!")
+            
+            # Save detailed execution log
+            log_file = f"monitoring_setup_{orchestrator.uid}.json"
+            save_event_stream(orchestrator.event_stream, log_file)
+            print(f"📝 Execution log saved to: {log_file}")
+            
+            # Print summary of actions taken
+            action_count = sum(1 for event in orchestrator.event_stream.events 
+                             if event.event_type == "ACTION")
+            print(f"📊 Total actions executed: {action_count}")
+            
+        else:
+            print(f"❌ Setup failed with status: {orchestrator.status}")
+            
+    except Exception as e:
+        print(f"💥 Error during setup: {e}")
+        
+    return orchestrator
+
+if __name__ == "__main__":
+    orchestrator = setup_monitoring_system()
+```
+
+#### Development Environment Setup
+
+```python
+#!/usr/bin/env python3
+"""Example: Automated development environment setup"""
+
+from anges.agents.agent_utils.agent_factory import AgentFactory, AgentConfig
+from anges.agents.agent_utils.events import Event
+
+def setup_dev_environment(project_name: str, tech_stack: str):
+    """Set up a complete development environment for a new project"""
+    
+    # Use orchestrator for complex setup
+    config = AgentConfig(
+        agent_type="orchestrator",
+        cmd_init_dir=f"/home/user/projects",
+        auto_entitle=True,
+        remaining_recursive_depth=3
+    )
+    
+    factory = AgentFactory()
+    agent = factory.create_agent(config)
+    
+    setup_task = f"""
+    Create a complete {tech_stack} development environment for project '{project_name}':
+    
+    1. Project Structure:
+       - Create project directory: {project_name}
+       - Set up standard directory structure
+       - Initialize version control (git)
+    
+    2. Environment Setup:
+       - Create and configure virtual environment
+       - Install base dependencies for {tech_stack}
+       - Set up development tools (linting, formatting, testing)
+    
+    3. Configuration Files:
+       - Create appropriate config files (.gitignore, requirements.txt, etc.)
+       - Set up CI/CD configuration templates
+       - Create development documentation templates
+    
+    4. Initial Code:
+       - Create basic project structure with example code
+       - Set up testing framework with sample tests
+       - Create initial documentation
+    
+    5. Verification:
+       - Run initial tests to verify setup
+       - Check code quality tools are working
+       - Validate all dependencies are correctly installed
+    """
+    
+    event = Event(event_type="NEW_REQUEST", content=setup_task)
+    agent.event_stream.add_event(event)
+    
+    print(f"🔧 Setting up {tech_stack} development environment for '{project_name}'...")
+    result = agent.run()
+    
+    return agent.status == "completed"
+
+# Example usage
+if __name__ == "__main__":
+    success = setup_dev_environment("my-web-app", "Python Flask")
+    if success:
+        print("✅ Development environment setup completed!")
+    else:
+        print("❌ Setup failed. Check logs for details.")
+```
+
+#### Log Analysis and Monitoring
+
+```python
+#!/usr/bin/env python3
+"""Example: Automated log analysis and monitoring"""
+
+from anges.agents.default_agent import DefaultAgent
+from anges.agents.agent_utils.events import Event
+import logging
+from datetime import datetime
+
+def analyze_system_logs():
+    """Analyze system logs for issues and generate reports"""
+    
+    agent = DefaultAgent(
+        cmd_init_dir="/var/log",
+        logging_level=logging.INFO,
+        auto_entitle=True
+    )
+    
+    analysis_task = f"""
+    Perform comprehensive system log analysis for {datetime.now().strftime('%Y-%m-%d')}:
+    
+    1. Error Detection:
+       - Scan system logs for ERROR, CRITICAL, and FATAL messages
+       - Identify recurring error patterns
+       - Extract relevant timestamps and context
+    
+    2. Security Analysis:
+       - Check authentication logs for failed login attempts
+       - Look for suspicious network activity
+       - Identify potential security threats
+    
+    3. Performance Monitoring:
+       - Analyze resource usage patterns
+       - Identify performance bottlenecks
+       - Check for memory or disk space issues
+    
+    4. Report Generation:
+       - Create summary report with findings
+       - Generate recommendations for issues found
+       - Save detailed analysis to /tmp/log_analysis_report.txt
+    
+    5. Alerting:
+       - If critical issues found, create alert file
+       - Prepare notification content for system administrators
+    """
+    
+    event = Event(event_type="NEW_REQUEST", content=analysis_task)
+    agent.event_stream.add_event(event)
+    
+    print("📊 Starting system log analysis...")
+    result = agent.run()
+    
+    if agent.status == "completed":
+        print("✅ Log analysis completed successfully")
+        return True
+    else:
+        print(f"❌ Log analysis failed: {agent.status}")
+        return False
+
+if __name__ == "__main__":
+    analyze_system_logs()
+```
+
+#### Performance Optimization Workflows
+
+```python
+#!/usr/bin/env python3
+"""Example: Automated performance optimization workflow"""
+
+from anges.agents.orchestrator import Orchestrator
+from anges.agents.agent_utils.events import Event
+import logging
+
+def optimize_system_performance():
+    """Run comprehensive system performance optimization"""
+    
+    orchestrator = Orchestrator(
+        cmd_init_dir="/",
+        remaining_recursive_depth=3,
+        logging_level=logging.INFO,
+        auto_entitle=True
+    )
+    
+    optimization_task = """
+    Perform comprehensive system performance optimization:
+    
+    Phase 1: System Analysis
+    - Analyze current system performance metrics
+    - Identify resource bottlenecks (CPU, memory, disk, network)
+    - Check running processes and services
+    - Analyze system startup time and services
+    
+    Phase 2: Cleanup Operations
+    - Clean temporary files and caches
+    - Remove old log files and rotate current ones
+    - Clean package manager caches
+    - Remove orphaned packages and dependencies
+    
+    Phase 3: Configuration Optimization
+    - Optimize system swappiness settings
+    - Configure I/O scheduler for better performance
+    - Adjust network buffer sizes if needed
+    - Optimize filesystem mount options
+    
+    Phase 4: Service Optimization
+    - Disable unnecessary startup services
+    - Optimize database configurations if present
+    - Configure web server settings for better performance
+    - Set up proper caching mechanisms
+    
+    Phase 5: Monitoring Setup
+    - Install performance monitoring tools
+    - Set up automated performance tracking
+    - Create performance baseline measurements
+    - Schedule regular optimization maintenance
+    
+    Phase 6: Verification and Reporting
+    - Run performance benchmarks before and after
+    - Generate detailed optimization report
+    - Create recommendations for future improvements
+    - Set up alerting for performance degradation
+    """
+    
+    event = Event(event_type="NEW_REQUEST", content=optimization_task)
+    orchestrator.event_stream.add_event(event)
+    
+    print("🚀 Starting system performance optimization workflow...")
+    result = orchestrator.run()
+    
+    return orchestrator.status == "completed"
+
+if __name__ == "__main__":
+    success = optimize_system_performance()
+    if success:
+        print("✅ Performance optimization completed!")
+    else:
+        print("❌ Optimization workflow failed.")
+```
+---
+
+*This documentation is part of an ongoing improvement initiative. Additional technical details, architecture diagrams, and comprehensive examples will be added in subsequent updates.*
