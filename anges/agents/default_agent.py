@@ -24,7 +24,7 @@ class DefaultAgent(BaseAgent):
             AgentHelpNeededAction(),
             ReadMIMEFilesAction(),
         ]
-        self.agent_config = config.agents.task_executor
+        self.agent_config = config.agents.default_agent
         self.max_consecutive_actions_to_summarize = self.agent_config.max_consecutive_actions_to_summarize
         if not self.inference_func:
             self.inference_func = INFERENCE_FUNC_DICT[self.agent_config.model_name]

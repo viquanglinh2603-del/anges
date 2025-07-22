@@ -1,11 +1,12 @@
+include LICENSE
 include README.md
 include CHANGELOG.md
 include requirements.txt
 include pytest.ini
-recursive-include anges/docs *
-recursive-include anges/examples *
-recursive-include anges/templates *
-recursive-include anges/static *
+recursive-include anges/configs *
+recursive-include anges/prompt_templates *
+recursive-include anges/web_interface/static *
+recursive-include anges/web_interface/templates *
 recursive-include anges *.py
 recursive-include anges *.json
 recursive-include anges *.yaml

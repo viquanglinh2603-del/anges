@@ -170,15 +170,21 @@ def genai_gemini_model(prompt, temperature: float = 0.3, enforce_json=False):
 
 
 @retry_on_quota_exceeded()
-def gemini_inference(prompt, temperature: float = 0.3, enforce_json=False):
+def gemini_inference(prompt, temperature: float = 0.3, enforce_json=True):
     from google import genai
     from google.genai import types
-    client = genai.Client(
-        vertexai=True,
-        project=VERTEX_GCP_PROJECT,
-        location="global",
-    )
-    model = config.model_api.genai_gemini.model
+    api_key = GEMINI_API_KEY
+    if api_key:
+        client = genai.Client(
+            api_key=api_key,
+        )
+    else:
+        client = genai.Client(
+            vertexai=True,
+            project=VERTEX_GCP_PROJECT,
+            location="global",
+        )
+    model = config.model_api.gemini.model
     contents = [
         types.Content(
             role="user",

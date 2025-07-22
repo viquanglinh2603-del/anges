@@ -1,99 +1,147 @@
-# Anges: An Efficient Open Source Engineering Assistant 
+# Anges: An Open Source Autonomous Engineering Assistant
 
-Anges is an open-source engineering agent system designed to be install-and-go, but also highly hackable and minimalist.
-
-| Feature                         | **Anges**                                        | **Gemini CLI**       | **Claude Code**            |
-| ------------------------------- | ------------------------------------------------ | -------------------- | -------------------------- |
-| **Open Source**                 | ✅ Yes (MIT)                                      | ✅ Yes (Apache-2.0)   | ❌ No                       |
-| **CLI Support**                 | ✅ Native                                         | ✅ Native             | ✅ Native                   |
-| **Web UI**                      | ✅ Native                                         | ❌ No                 | ❌ No                       |
-| **Coding from phone**          | ✅ Through Web UI                                 | ❌ No                 | ❌ No                       |
-| **Customizable**               | ✅ Flexible interface and easy to hack (Python)   | ⚠️ Forkable on GitHub | ❌ Minified, not editable   |
-| **Recursive Agent Orchestration** | ✅ Yes                                         | ❌ No                 | ❌ No                       |
-| **Model Support**              | ✅ Any model (OpenAI, Claude, Gemini, DeepSeek, BYO) | ❌ Gemini only        | ❌ Claude only              |
-
+Anges is an LLM powered engineering agent system designed to be easy to use, but also highly customizable and minimalist.
 
 ## Quick Start
 
-### Installation
+### Installation & First Run
 
 ```bash
 # Install from PyPI
 pip install anges
 
-# Or install from source
-git clone https://github.com/totoleon/anges
-cd anges
-pip install -e .
+# Set your API key. Anges defaults to using Anthropic's Claude.
+# (See configuration below to use other models like Gemini or OpenAI)
+export ANTHROPIC_API_KEY=<YOUR_API_KEY_HERE>
+
+# Run your first task
+anges -q "What is the OS version?"
 ```
 
 ### Basic Usage
 
 ```bash
-# Interactive mode
+# Interactive mode (for conversational tasks)
 anges -i
 
-# Direct task execution
-anges -q "List all Python files in the current directory"
+# Direct task execution from the command line
+anges -q "List all python files in the current directory."
 
-# Task from file
+# Execute a task described in a file
 anges -f task_description.txt
 
-# Web interface
+# Launch the web interface
 anges ui --port 5000 --password your_password
+
+# Help menu
+anges -h
 ```
 
-## Why Anges
+*A quick demonstration of Anges checking the OS and listing files.*
+![demo](docs/assets/simple_linux_operation.gif)
 
-### Problem Statement
-We are used to LLMs being advisors — they sit behind a chat box, waiting for copy-pasted context, offering suggestions you still have to run yourself.
+*A quick look of Anges UI.*
+![demo](docs/assets/anges_ui.jpg)
 
-But what if you gave AI **real access** to your shell, tools, and working environment?
+### Configurations
 
-What if it could **work alongside you**, not just talk to you?
+The default configuration is located at `anges/configs/default_config.yaml`.
 
-Anges turns that idea into a practical, hackable reality — giving LLMs controlled execution power while keeping engineers fully in the loop.
+You can override these settings by creating a `config.yaml` file at `~/.anges/config.yaml`.
 
+For example, to configure the default agent to use Google's Gemini Pro:
+
+```bash
+# Create the config file to switch the default model
+cat > ~/.anges/config.yaml <<EOF
+agents:
+  default_agent:
+    model_name: "gemini/gemini-1.5-pro-latest"
+EOF
+
+# Export the corresponding API key
+export GOOGLE_API_KEY=<YOUR_GEMINI_API_KEY>
+```
+
+### Advanced usages
+
+  * **Working Directory:** You can set the agent's working directory from the UI or CLI. This sets the default location for operations but does not enforce a strict permission boundary.
+
+  * **Prefix Command:** You can configure a prefix command (e.g., `export MY_VAR=... &&`) that will be executed before every command the agent runs. This is useful for setting up a consistent environment.
+
+  * **Default Agent vs. Orchestrator:**
+
+      * **Default Agent:** Ideal for simple, single-step tasks that a human could complete in a few minutes. It's fast and direct.
+      * **Orchestrator:** For complex, multi-step problems that require research, planning, and code iteration. The orchestrator agent can break down the task and delegate to other agents.
+
+  * **Event Streams:** Every action, thought process, and command is logged as a JSON file in `~/.anges/data/event_streams`. This provides full transparency and creates a valuable dataset for fine-tuning or analysis.
+
+### Demos & Examples
+
+  * [Linux and Cloud Ops](https://demo.anges.ai/?chatId=QIVELO41)
+  * [Creating a Demo Website](https://demo.anges.ai/?chatId=dCg8a13M)
+  * [Solving a Complex Task (3-hour run)](https://demo.anges.ai/?chatId=atktkEDt)
+  * [Recursive Self-Invocation Testing](https://demo.anges.ai/?chatId=pyA5pYEm)
+
+Explore more demos at **[https://demo.anges.ai](https://demo.anges.ai)**.
+
+
+## Why Anges?
+
+| Feature | **Anges** | **Gemini CLI** | **Cursor** |
+| :--- | :--- | :--- | :--- |
+| **Open Source** | ✅ Yes (MIT) | ✅ Yes (Apache-2.0) | ❌ No |
+| **CLI Support** | ✅ Yes | ✅ Yes | ✅ Yes |
+| **Web UI** | ✅ Yes | ❌ No | ❌ No |
+| **Mobile Web Access** | ✅ Yes | ❌ No | ❌ No |
+| **Hackable & Customizable** | ✅ Flexible (Python) | ⚠️ Forkable | ❌ Minified |
+| **Multi-Agent Orchestration**| ✅ Yes | ❌ No | ❌ No |
+| **Model Agnostic** | ✅ Any Model | ❌ Gemini Only | ❌ Claude/OpenAI |
+
+### From Advisor to Assistant
+
+We're used to LLMs being advisors—they sit behind a chat box, waiting for copy-pasted context and offering suggestions you still have to run yourself.
+
+But what if you gave an AI **real access** to your shell, tools, and working environment? What if it could **work alongside you**, not just talk to you?
+
+Anges turns that idea into a practical, hackable reality, giving LLMs controlled execution power while keeping engineers fully in the loop.
 
 ### Key Benefits
 
-- **Real Automation, Not Just Advice**  
-  Anges doesn’t just suggest commands — it runs them for you, in a controlled way. It’s not a chatbot, it’s an actual assistant.
+  * **Real Automation, Not Just Advice**
+    Anges doesn’t just suggest commands—it runs them. It reads output, handles errors, and plans its next move. It's a doer, not a talker.
 
-- **No Lock-In**  
-  Use any model you want — Claude, OpenAI, Gemini, DeepSeek — all configurable. Swap them in or out. You’re in control.
+  * **Model Agnostic**
+    Use any model you want—Claude, OpenAI, Gemini, Llama, local models—all are easily configurable. You control the brain.
 
-- **Multiple interfaces**  
-  Runs from the terminal and the UI. Access with terminal, in containers, or through the web interface.
+  * **Flexible Interfaces**
+    Work from your terminal, in a container, or through the web UI on your phone. Anges meets you where you are.
 
-- **Hackable by Design**  
-  Written in Python. Modular and minimal. Everything is exposed. Nothing is hidden behind frameworks or abstractions.
+  * **Hackable by Design**
+    Written in clean, modular Python. Everything is exposed and easy to modify. There are no heavy abstractions hiding the prompts or logic.
 
-- **Multi-Agent Ready**  
-  Tasks can be decomposed, delegated, and recursively executed. Built-in orchestration with zero boilerplate.
+  * **Built-in Orchestration**
+    Tackle complex tasks with a multi-agent system that can decompose problems, delegate work, and execute recursively—with zero boilerplate.
 
-- **Logs Everything**  
-  Every command, every decision, every token if you want — all saved to an event stream you can inspect or replay.
-
----
+  * **Transparent Event Logs**
+    Every command, decision, and observation is saved to a local event stream. You have a perfect, replayable audit trail of the agent's work.
 
 ### Use Cases
 
-- **Engineering Assistants**  
-  Ask it to install packages, inspect logs, restart services, grep files, modify configs — all in one query.
+  * **As an Engineering Assistant**
+    Ask it to install packages, inspect logs, restart services, or modify configuration files—all within a single, natural language query.
 
-- **DevOps & Maintenance**  
-  Use it to maintain your dev box, update dependencies, clean up space, or automate boring infra chores.
+  * **For DevOps & Maintenance**
+    Automate infrastructure chores like updating dependencies, cleaning up disk space, or managing your local development environment.
 
-- **Data & File Workflows**  
-  Move, rename, clean, or parse files. Pipe things together. Build quick pipelines without writing scripts.
+  * **For Data & File Workflows**
+    Let it move, rename, clean, or parse files. Have it pipe commands together to build quick data pipelines without writing scripts.
 
-- **Learning & Debugging**  
-  Watch how the agent breaks down a task and plans execution. Great for learning system tools or teaching LLMs.
+  * **For Learning & Debugging**
+    Watch how the agent breaks down a task and plans its execution. It’s a great way to learn new system tools or understand complex commands.
 
-- **Custom Domain Agents**  
-  Want an agent that knows your codebase, product, or workflow? Fork it, wire in your logic, and go.
-
+  * **To Build Custom Domain Agents**
+    Need an agent that knows your specific codebase, product, or workflow? Fork Anges, wire in your custom logic, and create a specialized assistant.
 
 ## Core Design Concepts
 

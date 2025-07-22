@@ -9,7 +9,7 @@ with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 setup(
     name="anges",
     version="0.1.0",
-    description="Anges - An Efficient Open Source Engineering Assistant",
+    description="Anges - An LLM Powered Engineering Agent System",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Anges Team",
@@ -21,14 +21,14 @@ setup(
         "Source": "https://github.com/anges-ai/anges",
         "Bug Tracker": "https://github.com/anges-ai/anges/issues",
     },
-    packages=find_packages(),
+    packages=find_packages(include=['anges', 'anges.*']),
     include_package_data=True,
     package_data={
         'anges': [
-            'docs/**/*',
-            'examples/**/*',
-            'templates/**/*',
-            'static/**/*',
+            'configs/*',
+            'prompt_templates/*',
+            'web_interface/static/**/*',
+            'web_interface/templates/*',
         ],
     },
     install_requires=[
@@ -45,6 +45,7 @@ setup(
         "pandas>=1.3.0",
         "datasets>=2.0.0",
         "pytest>=6.0.0",
+        "mime-files-reader>=0.2.0",
     ],
     extras_require={
         "dev": [
@@ -83,6 +84,8 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "Topic :: Software Development :: Libraries :: Application Frameworks",
