@@ -56,7 +56,7 @@ For example, to configure the default agent to use Google's Gemini Pro:
 cat > ~/.anges/config.yaml <<EOF
 agents:
   default_agent:
-    model_name: "gemini/gemini-1.5-pro-latest"
+    model_name: "gemini"
 EOF
 
 # Export the corresponding API key
