@@ -1,3 +1,6 @@
+**Language**: [English](implementation-guide.md) | [中文](zh/implementation-guide.md)
+
+---
 # Anges Implementation Guide
 
 ## Overview

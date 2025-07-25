@@ -1,3 +1,6 @@
+**Languages**: [English](web-interface.md) | [中文](zh/web-interface.md)
+
+---
 # Web Interface Documentation
 
 The Anges web interface provides a browser-based user interface for interacting with AI agents. It offers real-time communication, task management, and session handling through a Flask-based web application.

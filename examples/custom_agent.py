@@ -24,44 +24,53 @@ class CodeAnalyzerAgent(BaseAgent):
     A custom agent specialized for code analysis tasks.
     This agent has enhanced capabilities for analyzing Python code,
     detecting patterns, and providing code quality feedback.
+    
+    专门用于代码分析任务的自定义代理。
+    该代理具有分析Python代码、检测模式和提供代码质量反馈的增强功能。
     """
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
         # Set custom agent identification
+        # 设置自定义代理标识
         if self.parent_ids:
             self.agent_message_base = f"Agent (Type: CodeAnalyzerAgent, ID: {self.uid}, Parent_Ids: {'-'.join(self.parent_ids)}) "
         else:
             self.agent_message_base = f"Agent (Type: CodeAnalyzerAgent, ID: {self.uid}) "
         
         # Custom prompt template for code analysis
+        # 代码分析的自定义提示模板
         self.agent_prompt_template = self._get_custom_prompt_template()
         
         # Register actions (including custom ones)
+        # Register actions (including custom ones)
+        # 注册动作（包括自定义动作）
         self.registered_actions = [
             TaskCompleteAction(),
             RunShellCMDAction(),
             EditFileAction(),
             AgentTextResponseAction(),
             AgentHelpNeededAction(),
-            CodeQualityCheckAction(),  # Custom action
-            PythonLintAction(),        # Custom action
+            CodeQualityCheckAction(),  # Custom action | 自定义动作
+            PythonLintAction(),        # Custom action | 自定义动作
         ]
         
         # Use task executor config as base
+        # 使用任务执行器配置作为基础
         self.agent_config = config.agents.task_executor
         self.max_consecutive_actions_to_summarize = self.agent_config.max_consecutive_actions_to_summarize
         
         # Set inference function
+        # 设置推理函数
         if kwargs.get("inference_func"):
             self.inference_func = kwargs.get("inference_func")
         else:
             self.inference_func = INFERENCE_FUNC_DICT[self.agent_config.model_name]
-    
     def _get_custom_prompt_template(self):
         """
         Returns a custom prompt template specialized for code analysis.
+        返回专门用于代码分析的自定义提示模板。
         """
         return """
 # INSTRUCTION
@@ -73,9 +82,6 @@ Your capabilities include:
 - Static code analysis
 - Code quality assessment
 - Security vulnerability detection
-- Performance optimization suggestions
-- Code style and formatting recommendations
-- Dependency analysis
 
 When analyzing code, always consider:
 1. Code readability and maintainability

@@ -1,3 +1,6 @@
+**Language**: [English](architecture.md) | [中文](zh/architecture.md)
+
+---
 # Anges Architecture Documentation
 
 ## Overview

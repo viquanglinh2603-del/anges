@@ -1,3 +1,6 @@
+**Language**: [English](api-reference.md) | [中文](zh/api-reference.md)
+
+---
 # Anges API Reference
 
 ## Overview

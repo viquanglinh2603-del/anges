@@ -21,12 +21,19 @@ class GitOperationAction(Action):
     """
     Custom action for performing Git operations.
     Demonstrates a practical custom action that extends agent capabilities.
+    
+    用于执行Git操作的自定义动作。
+    演示扩展代理功能的实用自定义动作。
     """
     
     def __init__(self):
+        # Action type identifier | 动作类型标识符
         self.type = "GIT_OPERATION"
+        # Whether action output is shown to user | 动作输出是否显示给用户
         self.user_visible = False
+        # Whether this action can be combined with others | 此动作是否可以与其他动作组合
         self.unique_action = False
+        # Whether this action returns results | 此动作是否返回结果
         self.returning_action = False
         self.guide_prompt = """
 ### GIT_OPERATION:
@@ -59,7 +66,9 @@ Examples:
     def handle_action_in_parsed_response(self, run_config, parsed_response_dict, action_json):
         """
         Handle the Git operation action.
+        处理Git操作动作。
         """
+        # Extract operation parameters | 提取操作参数
         operation = action_json.get("operation", "status")
         files = action_json.get("files", [])
         message = action_json.get("message", "Automated commit")
@@ -67,10 +76,10 @@ Examples:
         event_stream = run_config["event_stream"]
         
         try:
-            # Build Git command based on operation
+            # Build Git command based on operation | 根据操作构建Git命令
             cmd = self._build_git_command(operation, files, message)
             
-            # Execute the Git command
+            # Execute the Git command | 执行Git命令
             result = run_command(
                 cmd,
                 cwd=run_config.get("cmd_init_dir", "./"),

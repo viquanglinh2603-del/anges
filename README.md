@@ -1,3 +1,7 @@
+<!-- Language switcher - place at top of every documentation file -->
+**Languages**: [English](README.md) | [中文](README.zh.md)
+
+---
 # Anges: An Open Source Autonomous Engineering Assistant
 
 Anges is an LLM powered engineering agent system designed to be easy to use, but also highly customizable and minimalist.
@@ -1057,3 +1061,7 @@ if __name__ == "__main__":
 ---
 
 *This documentation is part of an ongoing improvement initiative. Additional technical details, architecture diagrams, and comprehensive examples will be added in subsequent updates.*
+
+---
+
+**Languages**: [English](README.md) | [中文](README.zh.md)

@@ -1,3 +1,6 @@
+**Languages**: [English](README.md) | [中文](zh/README.md)
+
+---
 # Anges Documentation
 
 Welcome to the comprehensive documentation for **Anges**, an AI agent framework designed for multi-step task execution in Linux environments. This documentation hub provides everything you need to understand, use, and extend the Anges framework.
