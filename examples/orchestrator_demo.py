@@ -20,37 +20,37 @@ from anges.utils.data_handler import save_event_stream, read_event_stream
 def basic_orchestrator_example():
     """
     Demonstrates basic orchestrator usage for coordinating tasks.
+    演示协调任务的基本编排器用法。
     """
     print("=== Basic Orchestrator Example ===")
     
-    # Create an orchestrator instance
+    # Create an orchestrator instance | 创建编排器实例
     orchestrator = Orchestrator(
         cmd_init_dir="./",
         logging_level=logging.INFO,
-        auto_entitle=True
     )
     
     print(f"Created orchestrator with ID: {orchestrator.uid}")
     print(f"Available child agents: TaskAnalyzer, TaskExecutor")
-    
     # Example task that benefits from orchestration
+    # 受益于编排的示例任务
     complex_task = """
     I need to create a Python project structure for a web API. Please:
     1. Analyze what components are needed for a REST API project
     2. Create the directory structure
-    3. Generate basic Python files (main.py, requirements.txt, README.md)
-    4. Add some sample API endpoints
-    5. Create a simple test file
+    3. Set up basic configuration files
+    4. Create sample endpoint files
     """
     
     try:
-        print("\nExecuting complex task with orchestrator...")
+        # Execute the complex task using orchestrator
+        # 使用编排器执行复杂任务
+        print(f"\nExecuting complex task: {complex_task[:50]}...")
         result_stream = orchestrator.run_with_new_request(complex_task)
         
-        print(f"Task completed with {len(result_stream.events_list)} events.")
-        print(f"Final status: {result_stream.events_list[-1].type}")
-        
-        # Show how the orchestrator delegated tasks
+        # Display orchestration results
+        # 显示编排结果
+        print(f"\nTask completed with {len(result_stream.events_list)} events.")
         print("\n--- Task Delegation Summary ---")
         for i, event in enumerate(result_stream.events_list):
             if hasattr(event, 'type') and 'agent' in event.type.lower():

@@ -19,10 +19,11 @@ def basic_agent_example():
     print("=== Basic Anges Agent Usage Example ===")
     
     # Create a default agent with basic configuration
+    # 创建一个具有基本配置的默认代理
     agent = DefaultAgent(
-        cmd_init_dir="./",  # Working directory for shell commands
+        cmd_init_dir="./",  # Working directory for shell commands | Shell命令的工作目录
         logging_level=logging.INFO,
-        auto_entitle=True  # Automatically generate titles for conversations
+        auto_entitle=True  # Automatically generate titles for conversations | 自动为对话生成标题
     )
     
     print(f"Created agent with ID: {agent.uid}")
@@ -63,19 +64,15 @@ def agent_with_custom_config_example():
     Demonstrates creating an agent with custom configuration.
     """
     print("\n=== Agent with Custom Configuration Example ===")
-    
     # Create agent with custom settings
+    # 创建具有自定义设置的代理
     custom_agent = DefaultAgent(
-        cmd_init_dir="/tmp",  # Different working directory
-        prefix_cmd="echo 'Starting command:' && ",  # Prefix for shell commands
-        max_consecutive_actions_to_summarize=3,  # Summarize after 3 actions
+        cmd_init_dir="/tmp",  # Different working directory | 不同的工作目录
+        prefix_cmd="echo 'Starting command:' && ",  # Prefix for shell commands | Shell命令的前缀
         logging_level=logging.DEBUG,
-        auto_entitle=False
     )
     
     print(f"Created custom agent with ID: {custom_agent.uid}")
-    print(f"Working directory: {custom_agent.cmd_init_dir}")
-    print(f"Command prefix: {custom_agent.prefix_cmd}")
     
     # Run a task that will use the custom configuration
     task = """
@@ -92,30 +89,39 @@ def agent_with_custom_config_example():
 
 def event_stream_inspection_example():
     """
-    Demonstrates how to inspect and work with event streams.
+    Demonstrates how to inspect the event stream from agent execution.
+    演示如何检查代理执行的事件流。
     """
     print("\n=== Event Stream Inspection Example ===")
     
-    agent = DefaultAgent(logging_level=logging.WARNING)  # Reduce logging noise
+    agent = DefaultAgent()
+    task = "List the files in the current directory and count them."
     
-    task = "List the current directory contents and count the number of files."
-    
+    # Execute task and get event stream
+    # 执行任务并获取事件流
     try:
         result_stream = agent.run_with_new_request(task)
         
-        print(f"Event Stream ID: {result_stream.uid}")
-        print(f"Total events: {len(result_stream.events_list)}")
-        print(f"Event summaries: {len(result_stream.event_summaries_list)}")
+        print(f"\nTotal events in stream: {len(result_stream.events_list)}")
+        print("Event breakdown by type:")
+        
+        # Analyze event types and their frequency
+        # 分析事件类型及其频率
+        event_types = {}
+        for event in result_stream.events_list:
+            event_type = event.type
+            event_types[event_type] = event_types.get(event_type, 0) + 1
+        
+        for event_type, count in event_types.items():
+            print(f"  {event_type}: {count}")
         
         print("\n--- Event Details ---")
         for i, event in enumerate(result_stream.events_list):
-            print(f"Event {i+1}:")
-            print(f"  Type: {event.type}")
-            print(f"  Reasoning: {event.reasoning[:100]}..." if len(event.reasoning) > 100 else f"  Reasoning: {event.reasoning}")
-            if hasattr(event, 'message') and event.message:
-                print(f"  Message: {event.message[:100]}..." if len(event.message) > 100 else f"  Message: {event.message}")
-            print()
-            
+            print(f"Event {i+1}: {event.type} at {event.timestamp}")
+            if hasattr(event, 'content') and event.content:
+                content_preview = str(event.content)[:100]
+                print(f"  Content preview: {content_preview}...")
+    
     except Exception as e:
         print(f"Error in event stream inspection: {e}")
 

@@ -1,3 +1,7 @@
+<!-- Language Switcher -->
+**Language**: [English](README.md) | [中文](../zh/examples/README.md)
+
+---
 # Anges Examples
 
 This directory contains practical example code demonstrating various features and usage patterns of the Anges framework.

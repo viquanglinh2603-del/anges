@@ -1,3 +1,6 @@
+**Languages**: [English](configuration-system.md) | [中文](zh/configuration-system.md)
+
+---
 # Configuration System Documentation
 
 The Anges configuration system provides a flexible and structured way to manage application settings through YAML files and environment variables. This document covers the configuration architecture, available options, and usage patterns.
