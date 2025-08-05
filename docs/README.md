@@ -50,7 +50,18 @@ New to Anges? Follow this recommended learning path:
 - Testing and validation strategies
 - Real-world implementation patterns
 
-**Best For**: Developers building custom solutions, teams extending Anges for specific domains, and advanced users creating specialized workflows.
+
+### CLI Usage Guide
+**File**: [`cli-usage.md`](./cli-usage.md)
+
+**What's Inside**: Comprehensive command-line interface documentation covering:
+- All CLI arguments and modes of operation
+- Interactive, file-based, and direct question modes
+- Notes feature for providing contextual information
+- JSON format requirements and usage examples
+- Web interface launch options
+
+**Best For**: Users who prefer command-line interaction, automation scripts, and those needing to provide structured context through the notes feature.
 
 ### Documentation Examples
 **Directory**: [`examples/`](./examples/)

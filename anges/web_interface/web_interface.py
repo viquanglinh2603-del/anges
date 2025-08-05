@@ -222,7 +222,8 @@ def init_app(password=None):
                       cmd_init_dir,
                       model,
                       prefix_cmd,
-                      agent_type)
+                      agent_type,
+                      notes)
         return jsonify({"status": "success"}), 200
 
     @app.route("/new-chat")

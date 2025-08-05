@@ -32,7 +32,7 @@ agents:
   default_agent:
     shell_cmd_timeout: 120
     max_number_of_events_to_exhaust: 100
-    max_consecutive_actions_to_summarize: 25
+    max_consecutive_actions_to_summarize: 50
     default_agent_path: "."
     recent_content_not_truncating: 5
     max_consecutive_content_lines: 20

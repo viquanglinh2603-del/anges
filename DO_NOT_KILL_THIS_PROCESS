@@ -29,4 +29,4 @@ WEB_PASS = args.password or os.getenv('WEB_PASS')
 
 # Create and run the app
 app = init_app(WEB_PASS)
-app.run(host=WEB_HOST, port=WEB_PORT)
+app.run(host=WEB_HOST, port=WEB_PORT, debug=True, use_reloader=True)

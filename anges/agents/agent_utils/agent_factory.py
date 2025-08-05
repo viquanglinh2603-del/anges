@@ -43,6 +43,7 @@ class AgentConfig:
     # Common agent parameters
     cmd_init_dir: str = ""
     prefix_cmd: str = ""
+    notes: list = field(default_factory=list)
     interrupt_check: Optional[Callable] = None
     logging_level: int = logging.INFO
     auto_entitle: bool = True
@@ -119,6 +120,7 @@ class AgentFactory:
             'interrupt_check': config.interrupt_check,
             'model': config.model,
             'auto_entitle': config.auto_entitle,
+            'notes': config.notes,
         }
         
         # Add event_stream if provided (for web interface)
@@ -175,6 +177,7 @@ class AgentFactory:
                 'model': config.model,
                 'interrupt_check': config.interrupt_check,
                 'auto_entitle': config.auto_entitle,
+                'notes': config.notes,
             }
             
             # Add event_stream if provided

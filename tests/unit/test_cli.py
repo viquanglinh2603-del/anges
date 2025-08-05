@@ -48,7 +48,9 @@ class TestCLIEntryPoint:
             agent='default',
             model='test_model',
             logging_level='info',
-            existing_stream_id=None
+            existing_stream_id=None,
+            notes=None,
+            notes_file=None
         )
 
     @patch('anges.cli.run_cli_interface')
@@ -81,7 +83,9 @@ class TestCLIEntryPoint:
             agent='default',
             model='test_model',
             logging_level='info',
-            existing_stream_id=None
+            existing_stream_id=None,
+            notes=None,
+            notes_file=None
         )
 
     @patch('anges.cli.run_cli_interface')
@@ -115,7 +119,9 @@ class TestCLIEntryPoint:
             agent='default',
             model='test_model',
             logging_level='info',
-            existing_stream_id=None
+            existing_stream_id=None,
+            notes=None,
+            notes_file=None
         )
 
     @patch('anges.cli.run_web_interface')

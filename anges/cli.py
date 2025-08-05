@@ -45,7 +45,15 @@ def main():
                                help="Logging level")
     default_parser.add_argument("--existing_stream_id", type=str,
                                help="Existing event stream ID to continue from")
-    # File input mode
+    default_parser.add_argument("--notes", type=str, action="append",
+                               help="Add a note in JSON format: '{\"scope\": \"general\", \"title\": \"My Note\", \"content\": \"Note content\"}'. "
+                                    "Alternatively, provide plain text which will be auto-formatted. Can be used multiple times. "
+                                    "Required JSON fields: scope, title, content (all must be non-empty strings).")
+    default_parser.add_argument("--notes-file", type=str,
+                               help="Path to JSON file containing notes array. Format: "
+                                    "[{\"scope\": \"general\", \"title\": \"Note 1\", \"content\": \"Content 1\"}, "
+                                    "{\"scope\": \"project\", \"title\": \"Note 2\", \"content\": \"Content 2\"}]. "
+                                    "Each note must have scope, title, and content fields as non-empty strings.")
     parser.add_argument("-f", "--input-file", type=str, 
                         help="Run with an input file")
     
@@ -86,7 +94,9 @@ def main():
             agent=args.agent,
             model=args.model,
             logging_level=args.logging,
-            existing_stream_id=args.existing_stream_id
+            existing_stream_id=args.existing_stream_id,
+            notes=getattr(args, 'notes', None),
+            notes_file=getattr(args, 'notes_file', None)
         )
         return
     
@@ -105,7 +115,9 @@ def main():
                 agent=args.agent,
                 model=args.model,
                 logging_level=args.logging,
-                existing_stream_id=args.existing_stream_id
+                existing_stream_id=args.existing_stream_id,
+                notes=getattr(args, 'notes', None),
+                notes_file=getattr(args, 'notes_file', None)
             )
         finally:
             # Clean up the temporary file
@@ -122,7 +134,9 @@ def main():
             agent=args.agent,
             model=args.model,
             logging_level=args.logging,
-            existing_stream_id=args.existing_stream_id
+            existing_stream_id=args.existing_stream_id,
+            notes=getattr(args, 'notes', None),
+            notes_file=getattr(args, 'notes_file', None)
         )
         return
     
@@ -139,6 +153,8 @@ def run_cli_interface(
     model: str = "agent_default",
     logging_level: str = "debug",
     existing_stream_id: Optional[str] = None,
+    notes: Optional[list] = None,
+    notes_file: Optional[str] = None,
 ) -> int:
     """Run the CLI interface with the given parameters.
 
@@ -169,6 +185,8 @@ def run_cli_interface(
         args.model = model
         args.logging = logging_level.lower()  # Ensure lowercase for compatibility
         args.existing_stream_id = existing_stream_id
+        args.notes = notes
+        args.notes_file = notes_file
 
         # Call the run_cli_with_args function with our namespace object
         cli_runner.run_cli_with_args(args)

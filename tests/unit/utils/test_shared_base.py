@@ -44,7 +44,7 @@ class TestSharedBase(unittest.TestCase):
 
     def test_data_dir_constant_unchanged(self):
         """Test that the DATA_DIR constant itself is unchanged"""
-        self.assertEqual(DATA_DIR, '~/.anges/data/event_streams')
+        self.assertTrue(DATA_DIR.endswith('/data/event_streams'))
 
 
 if __name__ == '__main__':

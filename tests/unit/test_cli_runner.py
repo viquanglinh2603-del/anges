@@ -189,7 +189,7 @@ class TestCLIRunnerParameters:
         mock_create_agent.assert_called_once()
         mock_agent.run_with_new_request.assert_called_once_with(
             task_description="Test task",
-            event_stream=None
+            event_stream=[]
         )
         
         # Verify that sys.exit was not called (execution completed successfully)
@@ -236,7 +236,7 @@ class TestCLIRunnerParameters:
         mock_create_agent.assert_called_once()
         mock_agent.run_with_new_request.assert_called_once_with(
             task_description="Test task from file",
-            event_stream=None
+            event_stream=[]
         )
 
     @patch('anges.cli_interface.cli_runner.create_agent')
@@ -271,7 +271,7 @@ class TestCLIRunnerParameters:
         mock_create_agent.assert_called_once()
         mock_agent.run_with_new_request.assert_called_once_with(
             task_description="Test fallback question",
-            event_stream=None
+            event_stream=[]
         )
 
         # Verify that sys.exit was not called (execution continued)
@@ -348,7 +348,7 @@ class TestCLIRunnerParameters:
         mock_create_agent.assert_called_once()
         mock_agent.run_with_new_request.assert_called_once_with(
             task_description="Test question?",
-            event_stream=None
+            event_stream=[]
         )
 
 
@@ -366,5 +366,511 @@ class TestSignalHandling:
 
         # Verify the interrupt flag was set
         assert cli_runner.interrupt_requested is True
+
+class TestNotesValidation:
+    """Test notes validation functionality."""
+
+    def test_validate_note_structure_valid(self):
+        """Test validation of a properly structured note."""
+        from anges.cli_interface.cli_runner import validate_note_structure
+        
+        valid_note = {
+            "scope": "general",
+            "title": "Test Note",
+            "content": "This is a test note content"
+        }
+        
+        is_valid, error_msg = validate_note_structure(valid_note, "test")
+        assert is_valid is True
+        assert error_msg is None
+
+    def test_validate_note_structure_missing_fields(self):
+        """Test validation fails when required fields are missing."""
+        from anges.cli_interface.cli_runner import validate_note_structure
+        
+        # Missing 'content' field
+        invalid_note = {
+            "scope": "general",
+            "title": "Test Note"
+        }
+        
+        is_valid, error_msg = validate_note_structure(invalid_note, "test")
+        assert is_valid is False
+        assert "missing required fields: content" in error_msg
+        assert "Required: scope, title, content" in error_msg
+
+    def test_validate_note_structure_wrong_type(self):
+        """Test validation fails when note is not a dictionary."""
+        from anges.cli_interface.cli_runner import validate_note_structure
+        
+        invalid_note = "This is a string, not a dict"
+        
+        is_valid, error_msg = validate_note_structure(invalid_note, "test")
+        assert is_valid is False
+        assert "must be a dictionary/object, got str" in error_msg
+
+    def test_validate_note_structure_empty_fields(self):
+        """Test validation fails when required fields are empty."""
+        from anges.cli_interface.cli_runner import validate_note_structure
+        
+        invalid_note = {
+            "scope": "",
+            "title": "Test Note",
+            "content": "This is a test note content"
+        }
+        
+        is_valid, error_msg = validate_note_structure(invalid_note, "test")
+        assert is_valid is False
+        assert "field 'scope' cannot be empty" in error_msg
+
+    def test_validate_note_structure_non_string_fields(self):
+        """Test validation fails when fields are not strings."""
+        from anges.cli_interface.cli_runner import validate_note_structure
+        
+        invalid_note = {
+            "scope": "general",
+            "title": 123,  # Should be string
+            "content": "This is a test note content"
+        }
+        
+        is_valid, error_msg = validate_note_structure(invalid_note, "test")
+        assert is_valid is False
+        assert "field 'title' must be a string, got int" in error_msg
+
+
+class TestNotesParsingFromArgs:
+    """Test parsing notes from command line arguments."""
+
+    def test_parse_notes_from_args_valid_json(self):
+        """Test parsing valid JSON notes from command line arguments."""
+        from anges.cli_interface.cli_runner import parse_notes_from_args
+        
+        notes_args = [
+            '{"scope": "general", "title": "Note 1", "content": "First note"}',
+            '{"scope": "project", "title": "Note 2", "content": "Second note"}'
+        ]
+        
+        parsed_notes, errors = parse_notes_from_args(notes_args)
+        
+        assert len(parsed_notes) == 2
+        assert len(errors) == 0
+        assert parsed_notes[0]["scope"] == "general"
+        assert parsed_notes[0]["title"] == "Note 1"
+        assert parsed_notes[1]["scope"] == "project"
+        assert parsed_notes[1]["title"] == "Note 2"
+
+    def test_parse_notes_from_args_plain_text(self):
+        """Test parsing plain text notes (non-JSON) from command line arguments."""
+        from anges.cli_interface.cli_runner import parse_notes_from_args
+        
+        notes_args = [
+            "This is a plain text note",
+            "Another plain text note"
+        ]
+        
+        parsed_notes, errors = parse_notes_from_args(notes_args)
+        
+        assert len(parsed_notes) == 2
+        assert len(errors) == 0
+        assert parsed_notes[0]["scope"] == "general"
+        assert parsed_notes[0]["title"] == "CLI Note 1"
+        assert parsed_notes[0]["content"] == "This is a plain text note"
+        assert parsed_notes[1]["title"] == "CLI Note 2"
+        assert parsed_notes[1]["content"] == "Another plain text note"
+
+    def test_parse_notes_from_args_mixed_format(self):
+        """Test parsing mixed JSON and plain text notes."""
+        from anges.cli_interface.cli_runner import parse_notes_from_args
+        
+        notes_args = [
+            '{"scope": "project", "title": "JSON Note", "content": "This is JSON"}',
+            "This is plain text"
+        ]
+        
+        parsed_notes, errors = parse_notes_from_args(notes_args)
+        
+        assert len(parsed_notes) == 2
+        assert len(errors) == 0
+        assert parsed_notes[0]["scope"] == "project"
+        assert parsed_notes[0]["title"] == "JSON Note"
+        assert parsed_notes[1]["scope"] == "general"
+        assert parsed_notes[1]["title"] == "CLI Note 2"
+
+    def test_parse_notes_from_args_invalid_json(self):
+        """Test parsing invalid JSON notes from command line arguments."""
+        from anges.cli_interface.cli_runner import parse_notes_from_args
+        
+        notes_args = [
+            '{"scope": "general", "title": "Missing Content"}',  # Missing content field
+            '{"invalid": "json"}'  # Missing required fields
+        ]
+        
+        parsed_notes, errors = parse_notes_from_args(notes_args)
+        
+        assert len(parsed_notes) == 0
+        assert len(errors) == 2
+        assert "missing required fields: content" in errors[0]
+        assert "missing required fields: scope, title, content" in errors[1]
+
+    def test_parse_notes_from_args_empty_input(self):
+        """Test parsing empty notes arguments."""
+        from anges.cli_interface.cli_runner import parse_notes_from_args
+        
+        parsed_notes, errors = parse_notes_from_args(None)
+        assert len(parsed_notes) == 0
+        assert len(errors) == 0
+        
+        parsed_notes, errors = parse_notes_from_args([])
+        assert len(parsed_notes) == 0
+        assert len(errors) == 0
+
+    def test_parse_notes_from_args_empty_string(self):
+        """Test parsing empty string notes."""
+        from anges.cli_interface.cli_runner import parse_notes_from_args
+        
+        notes_args = ["", "   "]
+        
+        parsed_notes, errors = parse_notes_from_args(notes_args)
+        
+        assert len(parsed_notes) == 0
+        assert len(errors) == 2
+        assert "Command line note 1 is empty" in errors[0]
+        assert "Command line note 2 is empty" in errors[1]
+
+
+class TestNotesParsingFromFile:
+    """Test parsing notes from JSON files."""
+
+    def test_parse_notes_from_file_valid(self, tmp_path):
+        """Test parsing valid notes from a JSON file."""
+        from anges.cli_interface.cli_runner import parse_notes_from_file
+        
+        # Create a temporary JSON file with valid notes
+        notes_data = [
+            {"scope": "general", "title": "File Note 1", "content": "First note from file"},
+            {"scope": "project", "title": "File Note 2", "content": "Second note from file"}
+        ]
+        
+        notes_file = tmp_path / "notes.json"
+        with open(notes_file, 'w') as f:
+            import json
+            json.dump(notes_data, f)
+        
+        parsed_notes, errors = parse_notes_from_file(str(notes_file))
+        
+        assert len(parsed_notes) == 2
+        assert len(errors) == 0
+        assert parsed_notes[0]["scope"] == "general"
+        assert parsed_notes[0]["title"] == "File Note 1"
+        assert parsed_notes[1]["scope"] == "project"
+        assert parsed_notes[1]["title"] == "File Note 2"
+
+    def test_parse_notes_from_file_not_found(self):
+        """Test parsing notes from a non-existent file."""
+        from anges.cli_interface.cli_runner import parse_notes_from_file
+        
+        parsed_notes, errors = parse_notes_from_file("nonexistent_file.json")
+        
+        assert len(parsed_notes) == 0
+        assert len(errors) == 1
+        assert "Notes file not found: 'nonexistent_file.json'" in errors[0]
+
+    def test_parse_notes_from_file_invalid_json(self, tmp_path):
+        """Test parsing notes from a file with invalid JSON."""
+        from anges.cli_interface.cli_runner import parse_notes_from_file
+        
+        # Create a temporary file with invalid JSON
+        notes_file = tmp_path / "invalid_notes.json"
+        with open(notes_file, 'w') as f:
+            f.write('{"invalid": json}')
+        
+        parsed_notes, errors = parse_notes_from_file(str(notes_file))
+        
+        assert len(parsed_notes) == 0
+        assert len(errors) == 1
+        assert "Invalid JSON in notes file" in errors[0]
+
+    def test_parse_notes_from_file_not_array(self, tmp_path):
+        """Test parsing notes from a file that doesn't contain an array."""
+        from anges.cli_interface.cli_runner import parse_notes_from_file
+        
+        # Create a temporary file with a single object instead of array
+        notes_file = tmp_path / "not_array_notes.json"
+        with open(notes_file, 'w') as f:
+            import json
+            json.dump({"scope": "general", "title": "Note", "content": "Content"}, f)
+        
+        parsed_notes, errors = parse_notes_from_file(str(notes_file))
+        
+        assert len(parsed_notes) == 0
+        assert len(errors) == 1
+        assert "must contain an array of notes, got dict" in errors[0]
+
+    def test_parse_notes_from_file_empty_array(self, tmp_path):
+        """Test parsing notes from a file with an empty array."""
+        from anges.cli_interface.cli_runner import parse_notes_from_file
+        
+        # Create a temporary file with empty array
+        notes_file = tmp_path / "empty_notes.json"
+        with open(notes_file, 'w') as f:
+            import json
+            json.dump([], f)
+        
+        parsed_notes, errors = parse_notes_from_file(str(notes_file))
+        
+        assert len(parsed_notes) == 0
+        assert len(errors) == 1
+        assert "contains an empty array" in errors[0]
+
+    def test_parse_notes_from_file_invalid_notes(self, tmp_path):
+        """Test parsing notes from a file with invalid note structures."""
+        from anges.cli_interface.cli_runner import parse_notes_from_file
+        
+        # Create a temporary file with invalid note structures
+        notes_data = [
+            {"scope": "general", "title": "Valid Note", "content": "This is valid"},
+            {"scope": "general", "title": "Invalid Note"},  # Missing content
+            {"invalid": "structure"}  # Missing all required fields
+        ]
+        
+        notes_file = tmp_path / "mixed_notes.json"
+        with open(notes_file, 'w') as f:
+            import json
+            json.dump(notes_data, f)
+        
+        parsed_notes, errors = parse_notes_from_file(str(notes_file))
+        
+        assert len(parsed_notes) == 1  # Only the valid note
+        assert len(errors) == 2  # Two invalid notes
+        assert parsed_notes[0]["title"] == "Valid Note"
+        assert "missing required fields: content" in errors[0]
+        assert "missing required fields: scope, title, content" in errors[1]
+
+    def test_parse_notes_from_file_empty_path(self):
+        """Test parsing notes with empty file path."""
+        from anges.cli_interface.cli_runner import parse_notes_from_file
+        
+        parsed_notes, errors = parse_notes_from_file(None)
+        assert len(parsed_notes) == 0
+        assert len(errors) == 0
+        
+        parsed_notes, errors = parse_notes_from_file("")
+        assert len(parsed_notes) == 0
+        assert len(errors) == 0
+
+
+class TestNotesProcessing:
+    """Test the complete notes processing functionality."""
+
+    def test_process_notes_from_args_only(self):
+        """Test processing notes from command line arguments only."""
+        from anges.cli_interface.cli_runner import process_notes
+        import argparse
+        
+        args = argparse.Namespace(
+            notes=['{"scope": "general", "title": "Test", "content": "Test content"}'],
+            notes_file=None
+        )
+        
+        with patch('sys.stderr', new=io.StringIO()):
+            processed_notes, has_errors = process_notes(args)
+        
+        assert len(processed_notes) == 1
+        assert has_errors is False
+        assert processed_notes[0]["scope"] == "general"
+        assert processed_notes[0]["title"] == "Test"
+
+    def test_process_notes_from_file_only(self, tmp_path):
+        """Test processing notes from file only."""
+        from anges.cli_interface.cli_runner import process_notes
+        import argparse
+        import json
+        
+        # Create test file
+        notes_data = [{"scope": "project", "title": "File Note", "content": "From file"}]
+        notes_file = tmp_path / "test_notes.json"
+        with open(notes_file, 'w') as f:
+            json.dump(notes_data, f)
+        
+        args = argparse.Namespace(
+            notes=None,
+            notes_file=str(notes_file)
+        )
+        
+        with patch('sys.stderr', new=io.StringIO()):
+            processed_notes, has_errors = process_notes(args)
+        
+        assert len(processed_notes) == 1
+        assert has_errors is False
+        assert processed_notes[0]["scope"] == "project"
+        assert processed_notes[0]["title"] == "File Note"
+
+    def test_process_notes_from_both_sources(self, tmp_path):
+        """Test processing notes from both command line and file."""
+        from anges.cli_interface.cli_runner import process_notes
+        import argparse
+        import json
+        
+        # Create test file
+        notes_data = [{"scope": "project", "title": "File Note", "content": "From file"}]
+        notes_file = tmp_path / "test_notes.json"
+        with open(notes_file, 'w') as f:
+            json.dump(notes_data, f)
+        
+        args = argparse.Namespace(
+            notes=['{"scope": "general", "title": "CLI Note", "content": "From CLI"}'],
+            notes_file=str(notes_file)
+        )
+        
+        with patch('sys.stderr', new=io.StringIO()):
+            processed_notes, has_errors = process_notes(args)
+        
+        assert len(processed_notes) == 2
+        assert has_errors is False
+        # CLI notes come first, then file notes
+        assert processed_notes[0]["title"] == "CLI Note"
+        assert processed_notes[1]["title"] == "File Note"
+
+    def test_process_notes_with_errors(self):
+        """Test processing notes with some errors but valid notes too."""
+        from anges.cli_interface.cli_runner import process_notes
+        import argparse
+        
+        args = argparse.Namespace(
+            notes=[
+                '{"scope": "general", "title": "Valid", "content": "Valid note"}',
+                '{"invalid": "note"}',  # Missing required fields
+                'Plain text note'  # This should work as plain text
+            ],
+            notes_file=None
+        )
+        
+        with patch('sys.stderr', new=io.StringIO()):
+            processed_notes, has_errors = process_notes(args)
+        
+        assert len(processed_notes) == 2  # Valid JSON note + plain text note
+        assert has_errors is True  # Because of the invalid JSON note
+        assert processed_notes[0]["title"] == "Valid"
+        assert processed_notes[1]["title"] == "CLI Note 3"  # Plain text gets auto title
+
+    def test_process_notes_no_notes(self):
+        """Test processing when no notes are provided."""
+        from anges.cli_interface.cli_runner import process_notes
+        import argparse
+        
+        args = argparse.Namespace(
+            notes=None,
+            notes_file=None
+        )
+        
+        with patch('sys.stderr', new=io.StringIO()):
+            processed_notes, has_errors = process_notes(args)
+        
+        assert len(processed_notes) == 0
+        assert has_errors is False
+
+
+class TestNotesIntegrationWithAgentCreation:
+    """Test integration of notes with agent creation."""
+
+    @patch('anges.agents.agent_utils.agent_factory.AgentFactory.create_agent')
+    def test_create_agent_with_notes(self, mock_create_agent):
+        """Test that notes are properly passed to agent creation."""
+        from anges.cli_interface.cli_runner import create_agent
+        
+        mock_instance = MagicMock()
+        mock_create_agent.return_value = mock_instance
+        
+        test_notes = [
+            {"scope": "general", "title": "Test Note", "content": "Test content"}
+        ]
+        
+        agent = create_agent(
+            agent_type="default",
+            notes=test_notes
+        )
+        
+        # Verify agent was created with notes
+        assert agent == mock_instance
+        mock_create_agent.assert_called_once()
+        
+        # Get the AgentConfig that was passed to create_agent
+        call_args = mock_create_agent.call_args[0][0]  # First positional argument
+        assert hasattr(call_args, 'notes')
+        assert call_args.notes == test_notes
+
+    @patch('anges.agents.agent_utils.agent_factory.AgentFactory.create_agent')
+    def test_create_agent_without_notes(self, mock_create_agent):
+        """Test that agent creation works when no notes are provided."""
+        from anges.cli_interface.cli_runner import create_agent
+        
+        mock_instance = MagicMock()
+        mock_create_agent.return_value = mock_instance
+        
+        agent = create_agent(agent_type="default")
+        
+        # Verify agent was created with empty notes list
+        assert agent == mock_instance
+        mock_create_agent.assert_called_once()
+        
+        # Get the AgentConfig that was passed to create_agent
+        call_args = mock_create_agent.call_args[0][0]  # First positional argument
+        assert hasattr(call_args, 'notes')
+        assert call_args.notes == []
+
+    @patch('anges.cli_interface.cli_runner.create_agent')
+    def test_run_cli_with_notes_integration(self, mock_create_agent, tmp_path):
+        """Test end-to-end notes processing in run_cli_with_args."""
+        from anges.cli_interface.cli_runner import run_cli_with_args
+        import argparse
+        import json
+        
+        # Setup mock agent
+        mock_agent = MagicMock()
+        mock_create_agent.return_value = mock_agent
+        
+        # Create test notes file
+        notes_data = [{"scope": "project", "title": "File Note", "content": "From file"}]
+        notes_file = tmp_path / "test_notes.json"
+        with open(notes_file, 'w') as f:
+            json.dump(notes_data, f)
+        
+        # Create args with both CLI notes and notes file
+        args = argparse.Namespace(
+            model="default",
+            prefix_cmd="",
+            cmd_init_dir="",
+            agent="default",
+            input_file=None,
+            question="Test question with notes",
+            existing_stream_id=None,
+            logging="info",
+            notes=['{"scope": "general", "title": "CLI Note", "content": "From CLI"}'],
+            notes_file=str(notes_file)
+        )
+        
+        # Mock sys.stdin to avoid reading from actual stdin
+        mock_stdin = MagicMock()
+        mock_stdin.readline.side_effect = ["", ""]
+        
+        with patch('sys.stdout'):
+            with patch('sys.stderr', new=io.StringIO()):
+                with patch('sys.stdin', mock_stdin):
+                    run_cli_with_args(args)
+        
+        # Verify agent was created with the processed notes
+        mock_create_agent.assert_called_once()
+        create_call_args = mock_create_agent.call_args[1]  # keyword arguments
+        
+        assert 'notes' in create_call_args
+        notes_passed = create_call_args['notes']
+        assert len(notes_passed) == 2
+        
+        # CLI notes should come first
+        assert notes_passed[0]['title'] == 'CLI Note'
+        assert notes_passed[1]['title'] == 'File Note'
+        
+        # Verify agent.run_with_new_request was called
+        mock_agent.run_with_new_request.assert_called_once()
 
 

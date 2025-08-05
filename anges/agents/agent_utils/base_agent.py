@@ -28,6 +28,7 @@ class BaseAgent:
         max_consecutive_actions_to_summarize=config.agents.default_agent.max_consecutive_actions_to_summarize,
         logging_level=logging.DEBUG,
         auto_entitle = False,
+        notes = [],
     ):
         self.parent_ids = parent_ids
         self.event_stream = event_stream if event_stream else EventStream(parent_event_stream_uids=parent_ids, agent_type="default_agent")
@@ -48,6 +49,7 @@ class BaseAgent:
         logger.setLevel(logging_level)
         self.auto_entitle = auto_entitle
         self.agent_message_base = ""
+        self.notes = notes
         self.agent_config = None
         if inference_func:
             self.inference_func = inference_func
@@ -159,6 +161,12 @@ class BaseAgent:
         prompt_template = self.agent_prompt_template
         prompt_action_instruction = f"Here are the actionable tags that you can use in the response (note that all any unique action can not be used along with any other actions): {action_type_list}\n" + "\n".join(action_instruction_list)
         prompt_template = prompt_template.replace("PLACEHOLDER_ACTION_INSTRUCTIONS", prompt_action_instruction)
+        notes_instruction = ""
+        agent_notes = [n for n in self.notes if n.get("scope") == "agent"]
+        if agent_notes:
+            agent_notes_str = str([{'title': n.get('title', ''), 'content': n.get('content', '')} for n in agent_notes])
+            notes_instruction = f"Here IMPORTANT notes provided by the user about this task:\n{agent_notes_str}\n(! Note that these are only available to you, not your child agents)"
+        prompt_template = prompt_template.replace("PLACEHOLDER_NOTES_INSTRUCTIONS", notes_instruction)
         prompt = construct_prompt_for_event_stream(event_stream, prompt_template=prompt_template, agent_config=self.agent_config)
         parsed_response_dict = get_valid_response_json(
             prompt=prompt, inference_func=inference_func, logger=self.logger, valid_action_list = registered_actions

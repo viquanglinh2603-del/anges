@@ -42,7 +42,7 @@ inference_func_names = [
 @pytest.mark.parametrize("func_name", inference_func_names)
 def test_inference_func_dict(prompt, expected_response, func_name):
     inference_func = INFERENCE_FUNC_DICT[func_name]
-    response = inference_func(prompt, temperature=0.5).strip().lower().replace(".", "")
+    response = inference_func(prompt, temperature=0.5, enforce_json=False).strip().lower().replace(".", "")
     assert response == expected_response.lower()
 
 

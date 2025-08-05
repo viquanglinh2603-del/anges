@@ -27,6 +27,8 @@ For the non-unique actions, you can return multiple actions in the `action` list
 PLACEHOLDER_ACTION_INSTRUCTIONS
 
 ######### FOLLOWING IS THE ACTUAL REQUEST #########
+PLACEHOLDER_NOTES_INSTRUCTIONS
+
 # EVENT STREAM
 PLACEHOLDER_EVENT_STREAM
 

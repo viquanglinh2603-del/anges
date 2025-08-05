@@ -17,6 +17,7 @@ def run_agent_task(
     model=None,
     prefix_cmd="",
     agent_type="task_executor",
+    notes=[],
 ):
     """
     Run an agent task with the given parameters.
@@ -64,7 +65,8 @@ def run_agent_task(
             interrupt_check=check_interrupt,
             auto_entitle=True,
             remaining_recursive_depth=3 if agent_type == "orchestrator" else None,
-            max_consecutive_actions_to_summarize=config.agents.orchestrator.max_consecutive_actions_to_summarize if agent_type == "orchestrator" else None
+            max_consecutive_actions_to_summarize=config.agents.orchestrator.max_consecutive_actions_to_summarize if agent_type == "orchestrator" else None,
+            notes=notes,
         )
         
         # Create the agent using the centralized factory
