@@ -10,7 +10,8 @@ import argparse
 import sys
 import os
 import importlib
-from typing import Optional, List
+import json
+from typing import Optional, List, Dict, Any
 from anges.cli_interface import cli_runner
 import traceback
 
@@ -54,6 +55,8 @@ def main():
                                     "[{\"scope\": \"general\", \"title\": \"Note 1\", \"content\": \"Content 1\"}, "
                                     "{\"scope\": \"project\", \"title\": \"Note 2\", \"content\": \"Content 2\"}]. "
                                     "Each note must have scope, title, and content fields as non-empty strings.")
+    default_parser.add_argument("--mcp_config", type=str,
+                               help="Path to MCP configuration file (JSON format)")
     parser.add_argument("-f", "--input-file", type=str, 
                         help="Run with an input file")
     
@@ -96,7 +99,8 @@ def main():
             logging_level=args.logging,
             existing_stream_id=args.existing_stream_id,
             notes=getattr(args, 'notes', None),
-            notes_file=getattr(args, 'notes_file', None)
+            notes_file=getattr(args, 'notes_file', None),
+            mcp_config_file=getattr(args, 'mcp_config', None)
         )
         return
     
@@ -117,7 +121,8 @@ def main():
                 logging_level=args.logging,
                 existing_stream_id=args.existing_stream_id,
                 notes=getattr(args, 'notes', None),
-                notes_file=getattr(args, 'notes_file', None)
+                notes_file=getattr(args, 'notes_file', None),
+                mcp_config_file=getattr(args, 'mcp_config', None)
             )
         finally:
             # Clean up the temporary file
@@ -136,13 +141,66 @@ def main():
             logging_level=args.logging,
             existing_stream_id=args.existing_stream_id,
             notes=getattr(args, 'notes', None),
-            notes_file=getattr(args, 'notes_file', None)
+            notes_file=getattr(args, 'notes_file', None),
+            mcp_config_file=getattr(args, 'mcp_config', None)
         )
         return
     
     # If we reach here, no valid mode was specified, show help
     parser.print_help()
     return 0
+
+def load_mcp_config(mcp_config_file: str) -> Dict[str, Any]:
+    """Load and validate MCP configuration from a JSON file.
+
+    Args:
+        mcp_config_file: Path to the MCP configuration JSON file
+
+    Returns:
+        Dict containing validated MCP configuration
+
+    Raises:
+        FileNotFoundError: If the configuration file doesn't exist
+        json.JSONDecodeError: If the file contains invalid JSON
+        ValueError: If the configuration format is invalid
+    """
+    if not os.path.exists(mcp_config_file):
+        raise FileNotFoundError(f"MCP configuration file not found: {mcp_config_file}")
+
+    try:
+        with open(mcp_config_file, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+    except json.JSONDecodeError as e:
+        raise json.JSONDecodeError(f"Invalid JSON in MCP configuration file: {e}")
+
+    if not isinstance(config, dict):
+        raise ValueError("MCP configuration must be a JSON object")
+
+    # Validate and filter MCP configuration
+    validated_config = {}
+    for mcp_name, mcp_params in config.items():
+        if not isinstance(mcp_params, dict):
+            print(f"Warning: Skipping invalid MCP configuration for '{mcp_name}': must be an object")
+            continue
+
+        if "command" not in mcp_params:
+            print(f"Warning: Skipping MCP configuration for '{mcp_name}': missing 'command' field")
+            continue
+
+        if "args" not in mcp_params:
+            print(f"Warning: Skipping MCP configuration for '{mcp_name}': missing 'args' field")
+            continue
+
+        if not isinstance(mcp_params["args"], list):
+            print(f"Warning: Skipping MCP configuration for '{mcp_name}': 'args' must be a list")
+            continue
+
+        # Valid MCP configuration
+        validated_config[mcp_name] = {
+            "command": str(mcp_params["command"]),
+            "args": mcp_params["args"]
+        }
+    return validated_config
 
 def run_cli_interface(
     question: Optional[str] = None,
@@ -155,6 +213,7 @@ def run_cli_interface(
     existing_stream_id: Optional[str] = None,
     notes: Optional[list] = None,
     notes_file: Optional[str] = None,
+    mcp_config_file: Optional[str] = None,
 ) -> int:
     """Run the CLI interface with the given parameters.
 
@@ -167,11 +226,21 @@ def run_cli_interface(
         model: Model to use for inference
         logging_level: Logging level
         existing_stream_id: Existing event stream ID to continue from
+        mcp_config_file: Path to MCP configuration file
 
     Returns:
         int: Exit code (0 for success, 1 for error)
     """
     try:
+        # Load MCP configuration if provided
+        mcp_config = {}
+        if mcp_config_file:
+            try:
+                mcp_config = load_mcp_config(mcp_config_file)
+            except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+                print(f"Error loading MCP configuration: {e}", file=sys.stderr)
+                return 1
+
         # Import the CLI runner module directly from the correct path
         # cli_runner = importlib.import_module('anges.cli_interface.cli_runner')
 
@@ -187,6 +256,7 @@ def run_cli_interface(
         args.existing_stream_id = existing_stream_id
         args.notes = notes
         args.notes_file = notes_file
+        args.mcp_config = mcp_config  # Add MCP configuration
 
         # Call the run_cli_with_args function with our namespace object
         cli_runner.run_cli_with_args(args)

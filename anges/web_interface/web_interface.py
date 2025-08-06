@@ -17,18 +17,19 @@ from datetime import timedelta
 import queue
 from concurrent.futures import ThreadPoolExecutor
 import logging
-import secrets
 import argparse
+import asyncio
 from collections import defaultdict
 from anges.agents.agent_utils.events import Event, EventStream
 from anges.utils.event_storage_service import event_storage_service as event_storage
 from anges.web_interface.agent_runner import run_agent_task
 from anges.config import config
+from anges.utils.mcp_manager import McpManager
 
 # Global variables
 message_queue_dict = defaultdict(queue.Queue)
 login_manager = LoginManager()
-current_event_stream = None  # Will store the single EventStream
+current_event_stream: EventStream|None = None  # Will store the single EventStream
 interrupt_flags = {}
 active_tasks = {}  # Dictionary to track active tasks for each chat ID
 
@@ -50,10 +51,12 @@ APP_PASSWORD = "test_password"
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 # Add a file handler for debugging
-debug_handler = logging.FileHandler("/tmp/web_interface_debug.log")
+debug_file_path = "/tmp/web_interface_debug.log"
+os.makedirs(os.path.dirname(debug_file_path), exist_ok=True)
+debug_handler = logging.FileHandler(debug_file_path)
 debug_handler.setLevel(logging.DEBUG)
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-debug_handler = logging.FileHandler("/tmp/web_interface_debug.log")
+debug_handler = logging.FileHandler(debug_file_path)
 debug_handler.setLevel(logging.DEBUG)
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
@@ -77,6 +80,7 @@ def format_agent_message(message):
 
 def init_app(password=None):
     global APP_PASSWORD, app
+    
     # Add custom unauthorized handler for API requests
     def unauthorized_handler():
         if request.is_json or request.headers.get('Accept') == 'application/json':
@@ -170,6 +174,8 @@ def init_app(password=None):
     @app.route("/")
     # @login_required
     def home():
+        if not current_user.is_authenticated:
+            return redirect(url_for("login"))
         return render_template("chat.html")
 
     @app.route("/submit/<chat_id>", methods=["POST"])
@@ -261,7 +267,7 @@ def init_app(password=None):
     @app.route("/load-chat/<chat_id>")
     # @login_required
     def load_chat(chat_id):
-        # global current_event_stream
+        global current_event_stream
         try:
             current_event_stream = event_storage.load(chat_id)
             if current_event_stream is None:
@@ -272,11 +278,28 @@ def init_app(password=None):
             for e in all_events:
                 total_est_token_input += e.est_input_token
                 total_est_token_output += e.est_output_token
+            # Get MCP configuration and status
+            mcp_config = current_event_stream.mcp_config
+            mcp_clients = []
+            try:
+                if mcp_config:
+                    event_stream_mcp_manager = McpManager(mcp_config)
+                    clients_info = event_stream_mcp_manager.list_mcp_clients()
+                    for client_info in clients_info:
+                        client_info["tools"] = [
+                            {"name": tool.name} for tool in client_info["tools"]
+                        ]
+                    mcp_clients = clients_info
+            except Exception as e:
+                logger.warning(f"Error loading MCP clients for chat {chat_id}: {e}")
+            
             return jsonify({
                 "status": "success",
                 "est_input_token": total_est_token_input,
                 "est_output_token": total_est_token_output,
                 "agent_settings": current_event_stream.agent_settings,
+                "mcp_config": mcp_config,
+                "mcp_clients": mcp_clients,
                 "events": [{"type": event.type, "message": event.message } for event in all_events]
             })
         except Exception as e:
@@ -368,6 +391,79 @@ def init_app(password=None):
             })
         except Exception as e:
             logger.error(f"Error checking stream status for chat {chat_id}: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    # MCP management routes
+    @app.route("/api/mcp/refresh", methods=["POST"])
+    @api_login_required
+    def refresh_mcp_status():
+        """Refresh MCP client status"""
+        try:
+            global current_event_stream
+            
+            if current_event_stream is None:
+                return jsonify({"status": "error", "message": "No active event stream"}), 400
+            
+            # Get current configuration
+            mcp_config = current_event_stream.mcp_config
+            
+            # Initialize MCP manager with current configuration
+            event_stream_mcp_manager = McpManager(mcp_config)
+            
+            # Get client status and tools
+            clients_info = event_stream_mcp_manager.list_mcp_clients()
+            for client_info in clients_info:
+                client_info["tools"] = [
+                    {"name": tool.name} for tool in client_info["tools"]
+                ]
+            
+            return jsonify({
+                "status": "success", 
+                "mcp_clients": clients_info
+            })
+        except Exception as e:
+            logger.error(f"Error refreshing MCP status: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    @app.route("/api/mcp/config", methods=["PUT"])
+    @api_login_required
+    def update_mcp_config():
+        """Update entire MCP configuration from JSON"""
+        try:
+            global current_event_stream
+
+            if current_event_stream is None:
+                return jsonify({"status": "error", "message": "No active event stream"}), 400
+
+            data = request.get_json()
+            mcp_config = data.get("mcp_config")
+
+            if mcp_config is None:
+                return jsonify({"status": "error", "message": "mcp_config is required"}), 400
+
+            if not isinstance(mcp_config, dict):
+                return jsonify({"status": "error", "message": "mcp_config must be a valid JSON object"}), 400
+
+            # Validate configuration format
+            for name, config in mcp_config.items():
+                if not isinstance(config, dict):
+                    return jsonify({"status": "error", "message": f"Invalid configuration for '{name}': must be an object"}), 400
+                if "command" not in config or "args" not in config:
+                    return jsonify({"status": "error", "message": f"Invalid configuration for '{name}': missing 'command' or 'args'"}), 400
+                if not isinstance(config["args"], list):
+                    return jsonify({"status": "error", "message": f"Invalid configuration for '{name}': 'args' must be an array"}), 400
+
+            # Update the event stream's MCP configuration
+            current_event_stream.mcp_config = mcp_config
+
+            # Save the event stream
+            event_storage.save_event_stream(current_event_stream)
+
+            return jsonify({"status": "success", "message": "MCP configuration updated successfully"})
+        except json.JSONDecodeError:
+            return jsonify({"status": "error", "message": "Invalid JSON format"}), 400
+        except Exception as e:
+            logger.error(f"Error updating MCP configuration: {e}")
             return jsonify({"status": "error", "message": str(e)}), 500
 
     return app

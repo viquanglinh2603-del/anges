@@ -149,7 +149,7 @@ class EventSummary:
 class EventStream:
     """Manages a sequence of events and their summaries."""
     
-    def __init__(self, title=None, uid=None, parent_event_stream_uids=None, agent_type=""):
+    def __init__(self, title=None, uid=None, parent_event_stream_uids=None, agent_type="", mcp_config=None):
         self.events_list = []
         self.event_summaries_list = []
         self.created_at = datetime.now()
@@ -158,6 +158,7 @@ class EventStream:
         self.parent_event_stream_uids = parent_event_stream_uids if parent_event_stream_uids is not None else []
         self.agent_type = agent_type
         self.agent_settings = {}
+        self.mcp_config = mcp_config or {}
 
     def update_settings(self, settings):
         """Update agent settings with new values"""
@@ -233,7 +234,8 @@ class EventStream:
             'uid': self.uid,
             'parent_event_stream_uids': self.parent_event_stream_uids,
             'agent_type': self.agent_type,
-            'agent_settings': self.agent_settings
+            'agent_settings': self.agent_settings,
+            'mcp_config': self.mcp_config or {}
         }
     
     @classmethod
@@ -242,7 +244,8 @@ class EventStream:
             title=data['title'],
             uid=data['uid'],
             parent_event_stream_uids=data.get('parent_event_stream_uids', []),
-            agent_type=data.get('agent_type', '')
+            agent_type=data.get('agent_type', ''),
+            mcp_config=data.get("mcp_config", {})
         )
         stream.created_at = datetime.fromisoformat(data['created_at'])
         stream.events_list = [Event.from_dict(event_data) for event_data in data['events_list']]

@@ -25,7 +25,7 @@ def signal_handler(signum, frame):
     interrupt_requested = True
     print("\nInterrupt received, cleaning up...")
 
-def create_agent(agent_type: str, cmd_init_dir: str = "", prefix_cmd: str = "", interrupt_check=None, logging_level=logging.INFO, model="agent_default", notes=None) -> Optional[object]:
+def create_agent(agent_type: str, cmd_init_dir: str = "", prefix_cmd: str = "", interrupt_check=None, logging_level=logging.INFO, model="agent_default", notes=None, mcp_config=None) -> Optional[object]:
     """Factory function to create different types of agents using the centralized AgentFactory.
     
     Args:
@@ -36,7 +36,8 @@ def create_agent(agent_type: str, cmd_init_dir: str = "", prefix_cmd: str = "", 
         logging_level: Logging level for the agent. Defaults to logging.INFO.
         model (str, optional): Model to use for inference. Defaults to "agent_default".
         notes (list, optional): List of notes to pass to the agent. Defaults to None.
-    
+        mcp_config (dict, optional): MCP configuration. Defaults to None.
+
     Returns:
         Agent: Instance of the requested agent type
     
@@ -46,7 +47,7 @@ def create_agent(agent_type: str, cmd_init_dir: str = "", prefix_cmd: str = "", 
     # Ensure notes is a list if provided
     if notes is None:
         notes = []
-    
+
     # Create agent configuration
     config = AgentConfig(
         agent_type=agent_type,
@@ -57,7 +58,8 @@ def create_agent(agent_type: str, cmd_init_dir: str = "", prefix_cmd: str = "", 
         logging_level=logging_level,
         auto_entitle=True,
         notes=notes,
-        remaining_recursive_depth=3 if agent_type == "orchestrator" else None
+        remaining_recursive_depth=3 if agent_type == "orchestrator" else None,
+        mcp_config=mcp_config
     )
     
     # Use the centralized factory
@@ -142,68 +144,73 @@ def parse_arguments():
              "{\"scope\": \"project\", \"title\": \"Note 2\", \"content\": \"Content 2\"}]. "
              "Each note must have scope, title, and content fields as non-empty strings."
     )
+    parser.add_argument(
+        "--mcp_config",
+        type=str,
+        help="MCP configuration in JSON format"
+    )
 
     return parser.parse_args()
 
 
 def validate_note_structure(note, source="unknown"):
     """Validate that a note has all required fields with proper types.
-    
+
     Args:
         note (dict): The note to validate
         source (str): Source description for error messages
-    
+
     Returns:
         tuple: (is_valid, error_message)
     """
     if not isinstance(note, dict):
         return False, f"Note from {source} must be a dictionary/object, got {type(note).__name__}"
-    
+
     required_fields = ['scope', 'title', 'content']
     missing_fields = [field for field in required_fields if field not in note]
-    
+
     if missing_fields:
         return False, f"Note from {source} missing required fields: {', '.join(missing_fields)}. Required: {', '.join(required_fields)}"
-    
+
     # Validate field types
     for field in required_fields:
         if not isinstance(note[field], str):
             return False, f"Note from {source} field '{field}' must be a string, got {type(note[field]).__name__}"
         if not note[field].strip():
             return False, f"Note from {source} field '{field}' cannot be empty"
-    
+
     return True, None
 
 def parse_notes_from_args(notes_args):
     """Parse notes from command line arguments.
-    
+
     Supports both JSON format and plain text format:
     - JSON: '{"scope": "general", "title": "My Note", "content": "Note content"}'
     - Plain text: 'This is my note content' (automatically gets scope='general', title='CLI Note')
-    
+
     Args:
         notes_args (list): List of strings from --notes arguments
-    
+
     Returns:
         tuple: (parsed_notes, errors)
     """
     parsed_notes = []
     errors = []
-    
+
     if not notes_args:
         return parsed_notes, errors
-    
+
     for i, note_str in enumerate(notes_args):
         try:
             # First try to parse as JSON
             note = json.loads(note_str)
             is_valid, error_msg = validate_note_structure(note, f"command line argument {i+1}")
-            
+
             if is_valid:
                 parsed_notes.append(note)
             else:
                 errors.append(error_msg)
-                
+
         except json.JSONDecodeError:
             # If JSON parsing fails, treat as plain text note
             if note_str.strip():
@@ -215,44 +222,44 @@ def parse_notes_from_args(notes_args):
                 parsed_notes.append(plain_text_note)
             else:
                 errors.append(f"Command line note {i+1} is empty")
-    
+
     return parsed_notes, errors
 
 def parse_notes_from_file(notes_file_path):
     """Parse notes from a JSON file.
-    
+
     Args:
         notes_file_path (str): Path to the JSON file containing notes
-    
+
     Returns:
         tuple: (parsed_notes, errors)
     """
     parsed_notes = []
     errors = []
-    
+
     if not notes_file_path:
         return parsed_notes, errors
-    
+
     try:
         with open(notes_file_path, 'r', encoding='utf-8') as f:
             file_content = json.load(f)
-        
+
         if not isinstance(file_content, list):
             errors.append(f"Notes file '{notes_file_path}' must contain an array of notes, got {type(file_content).__name__}")
             return parsed_notes, errors
-        
+
         if not file_content:
             errors.append(f"Notes file '{notes_file_path}' contains an empty array")
             return parsed_notes, errors
-        
+
         for i, note in enumerate(file_content):
             is_valid, error_msg = validate_note_structure(note, f"file '{notes_file_path}' note {i+1}")
-            
+
             if is_valid:
                 parsed_notes.append(note)
             else:
                 errors.append(error_msg)
-                
+
     except FileNotFoundError:
         errors.append(f"Notes file not found: '{notes_file_path}'")
     except json.JSONDecodeError as e:
@@ -261,81 +268,81 @@ def parse_notes_from_file(notes_file_path):
         errors.append(f"Permission denied reading notes file: '{notes_file_path}'")
     except Exception as e:
         errors.append(f"Unexpected error reading notes file '{notes_file_path}': {e}")
-    
+
     return parsed_notes, errors
 
 def convert_notes_to_expected_format(notes):
     """Convert notes to the format expected by the agent.
-    
+
     Args:
         notes (list): List of validated note dictionaries
-    
+
     Returns:
         list: Notes in the expected format for the agent
     """
     # For now, we'll keep the same format but ensure consistency
     # This can be enhanced later if the agent expects a different format
     converted_notes = []
-    
+
     for note in notes:
         converted_note = {
             'scope': note['scope'].strip(),
-            'title': note['title'].strip(), 
+            'title': note['title'].strip(),
             'content': note['content'].strip()
         }
-        
+
         # Preserve any additional fields that might be present
         for key, value in note.items():
             if key not in ['scope', 'title', 'content']:
                 converted_note[key] = value
-                
+
         converted_notes.append(converted_note)
-    
+
     return converted_notes
 
 def process_notes(args):
     """Process and validate notes from both command line arguments and files.
-    
+
     Args:
         args: Parsed command line arguments
-    
+
     Returns:
         tuple: (processed_notes, has_errors)
     """
     all_notes = []
     all_errors = []
-    
+
     # Process notes from command line arguments
     if hasattr(args, 'notes') and args.notes:
         notes_from_args, arg_errors = parse_notes_from_args(args.notes)
         all_notes.extend(notes_from_args)
         all_errors.extend(arg_errors)
-    
+
     # Process notes from file
     if hasattr(args, 'notes_file') and args.notes_file:
         notes_from_file, file_errors = parse_notes_from_file(args.notes_file)
         all_notes.extend(notes_from_file)
         all_errors.extend(file_errors)
-    
+
     # Report errors
     if all_errors:
         print("\nNotes processing errors:", file=sys.stderr)
         for error in all_errors:
             print(f"  - {error}", file=sys.stderr)
-        
+
         # If there are any notes that were successfully parsed, continue with those
         if all_notes:
             print(f"\nContinuing with {len(all_notes)} successfully parsed notes.", file=sys.stderr)
         else:
             print("\nNo valid notes found. Continuing without notes.", file=sys.stderr)
             return [], True
-    
+
     # Convert notes to expected format
     if all_notes:
         processed_notes = convert_notes_to_expected_format(all_notes)
         print(f"Successfully processed {len(processed_notes)} notes.", file=sys.stderr)
         return processed_notes, len(all_errors) > 0
-    
+
     return [], len(all_errors) > 0
 def check_interrupt():
     """Check if an interrupt has been requested.
@@ -365,12 +372,12 @@ def main():
         # Create the agent using the factory
         # Process notes if provided
         notes, has_notes_errors = process_notes(args)
-        
+
         # Exit if there were critical notes errors and no valid notes
         if has_notes_errors and not notes:
             print("\nFailed to process notes. Please check the errors above and try again.", file=sys.stderr)
             return 1
-        
+
         agent = create_agent(
             agent_type=args.agent,
             cmd_init_dir=args.cmd_init_dir,
@@ -378,7 +385,8 @@ def main():
             prefix_cmd=args.prefix_cmd,
             interrupt_check=check_interrupt,
             logging_level=logging_level,
-            notes=notes
+            notes=notes,
+            mcp_config=args.mcp_config
         )
         
         if agent is None:
@@ -479,10 +487,19 @@ def run_cli_with_args(args, check_interrupt=None):
         except Exception as e:
             print(f"Warning: Could not load existing event stream {args.existing_stream_id}: {e}")
             event_stream = []
-    
+
     # Process notes if provided
     notes, has_notes_errors = process_notes(args)
-    
+
+    # Initialize MCP configuration if provided
+    mcp_config = {}
+    if hasattr(args, 'mcp_config') and args.mcp_config:
+        mcp_config = args.mcp_config
+
+        # If we have an existing event stream, update its mcp config
+        if event_stream:
+            event_stream.mcp_config = mcp_config
+
     # Create and configure agent
     agent = create_agent(
         agent_type=args.agent,
@@ -491,7 +508,8 @@ def run_cli_with_args(args, check_interrupt=None):
         model=args.model,
         prefix_cmd=getattr(args, 'prefix_cmd', ''),
         logging_level=logging_level,
-        notes=notes
+        notes=notes,
+        mcp_config=mcp_config
     )
 
     if agent is None:

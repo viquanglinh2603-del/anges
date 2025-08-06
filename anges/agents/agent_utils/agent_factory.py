@@ -48,11 +48,13 @@ class AgentConfig:
     logging_level: int = logging.INFO
     auto_entitle: bool = True
     model: str = "agent_default"  # Default model for inference
-    
+    mcp_config: Optional[Dict[str, Any]] = None
+
     # Web interface specific parameters
     event_stream: Optional[Any] = None
     message_queue: Optional[Any] = None
-    
+
+
     # Orchestrator specific parameters
     remaining_recursive_depth: Optional[int] = None
     max_consecutive_actions_to_summarize: Optional[int] = None
@@ -121,6 +123,7 @@ class AgentFactory:
             'model': config.model,
             'auto_entitle': config.auto_entitle,
             'notes': config.notes,
+            'mcp_config': config.mcp_config,
         }
         
         # Add event_stream if provided (for web interface)
@@ -178,6 +181,7 @@ class AgentFactory:
                 'interrupt_check': config.interrupt_check,
                 'auto_entitle': config.auto_entitle,
                 'notes': config.notes,
+                'mcp_config': config.mcp_config,
             }
             
             # Add event_stream if provided

@@ -39,7 +39,7 @@ PLACEHOLDER_ACTION_INSTRUCTIONS
 User request received
 - Questioning message or Task?
   - Question: Enough info to answer, is that something you can answer directly, or can you get the info from previous agent task?
-    Y -> Complete the Tasl with answering the question
+    Y -> Complete the Task with answering the question
     N -> Do the needful to collect the information and provide the answer
   - Task: Simple or complicated task?
     Simple: Call TaskExecutor agent to execute the task. (Example: build a simple demo web site)

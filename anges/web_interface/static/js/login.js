@@ -16,27 +16,44 @@ function initializeLogin(errorMessage, loginUrl) {
         const [showPassword, setShowPassword] = React.useState(false);
         const [password, setPassword] = React.useState('');
 
+        // Use theme context if available
+        const colorModeContext = React.useContext(ColorModeContext || React.createContext({}));
+        const { toggleColorMode, mode } = colorModeContext;
+
         const handleSubmit = (e) => {
             e.preventDefault();
             e.target.submit();
         };
 
-        // Create the login UI without ThemeWrapper first
-        const loginUI = (
+        const handlePasswordChange = (e) => {
+            setPassword(e.target.value);
+        };
+
+        const handleTogglePasswordVisibility = () => {
+            setShowPassword(!showPassword);
+        };
+
+        const handleThemeToggle = () => {
+            if (toggleColorMode) {
+                toggleColorMode();
+            }
+        };
+
+        return (
             <Box sx={{ flexGrow: 1 }}>
                 <AppBar position="static" elevation={4}>
                     <Toolbar>
                         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
                             Anges AI
                         </Typography>
-                        {/* The theme toggle button will receive props from ThemeWrapper */}
                         <IconButton 
                             color="inherit" 
                             sx={{ ml: 1 }}
                             title="Toggle light/dark theme"
+                            onClick={handleThemeToggle}
                         >
                             <span className="material-icons">
-                                dark_mode
+                                {mode === 'dark' ? 'light_mode' : 'dark_mode'}
                             </span>
                         </IconButton>
                     </Toolbar>
@@ -64,13 +81,13 @@ function initializeLogin(errorMessage, loginUrl) {
                                     label="Enter password"
                                     variant="outlined"
                                     value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
+                                    onChange={handlePasswordChange}
                                     sx={{ mb: 3 }}
                                     InputProps={{
                                         endAdornment: (
                                             <InputAdornment position="end">
                                                 <IconButton
-                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    onClick={handleTogglePasswordVisibility}
                                                     edge="end"
                                                 >
                                                     <span className="material-icons">
@@ -97,53 +114,22 @@ function initializeLogin(errorMessage, loginUrl) {
                 </Container>
             </Box>
         );
+    }
 
+    function AppWrapper() {
         try {
             if (typeof ThemeWrapper === 'undefined') {
-                console.error("ThemeWrapper is not defined!");
-                // Fallback to original design if ThemeWrapper isn't available
-                return loginUI;
+                console.warn("ThemeWrapper is not defined, using default styling");
+                return <LoginApp />;
             }
             
-            // Enhanced version of loginUI that uses the ThemeWrapper
-            // The ThemeWrapper component will clone the loginUI element and add props to it
-            const EnhancedLoginUI = React.forwardRef((props, ref) => {
-                console.log("EnhancedLoginUI rendering with props:", props);
-                
-                // Create a new version of loginUI with the theme toggle button updated
-                return React.cloneElement(loginUI, {}, 
-                    React.cloneElement(loginUI.props.children[0], {}, 
-                        React.cloneElement(loginUI.props.children[0].props.children, {}, 
-                            // Keep the Typography component
-                            loginUI.props.children[0].props.children.props.children[0],
-                            // Replace the IconButton with one that uses the theme props
-                            React.cloneElement(
-                                loginUI.props.children[0].props.children.props.children[1], 
-                                { 
-                                    onClick: props.toggleColorMode 
-                                }, 
-                                React.cloneElement(
-                                    loginUI.props.children[0].props.children.props.children[1].props.children, 
-                                    {}, 
-                                    props.currentTheme === 'dark' ? 'light_mode' : 'dark_mode'
-                                )
-                            )
-                        )
-                    ),
-                    // Keep the Container component unchanged
-                    loginUI.props.children[1]
-                );
-            });
-            
-            // Now wrap the enhanced login UI with ThemeWrapper
             return (
                 <ThemeWrapper>
-                    <EnhancedLoginUI />
+                    <LoginApp />
                 </ThemeWrapper>
             );
         } catch (error) {
-            console.error("Error rendering LoginApp:", error);
-            // Display error in the UI for debugging
+            console.error("Error rendering AppWrapper:", error);
             return (
                 <Box sx={{ p: 4, color: 'error.main' }}>
                     <Typography variant="h5">Error Rendering Login</Typography>
@@ -155,9 +141,9 @@ function initializeLogin(errorMessage, loginUrl) {
     }
 
     try {
-        console.log("Attempting to render LoginApp");
-        ReactDOM.render(<LoginApp />, document.getElementById('root'));
-        console.log("LoginApp rendered successfully");
+        console.log("Attempting to render AppWrapper");
+        ReactDOM.render(<AppWrapper />, document.getElementById('root'));
+        console.log("AppWrapper rendered successfully");
     } catch (error) {
         console.error("Error during ReactDOM.render:", error);
         // Display error on the page for debugging

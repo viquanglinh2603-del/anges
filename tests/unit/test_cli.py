@@ -50,7 +50,8 @@ class TestCLIEntryPoint:
             logging_level='info',
             existing_stream_id=None,
             notes=None,
-            notes_file=None
+            notes_file=None,
+            mcp_config_file=None
         )
 
     @patch('anges.cli.run_cli_interface')
@@ -85,7 +86,8 @@ class TestCLIEntryPoint:
             logging_level='info',
             existing_stream_id=None,
             notes=None,
-            notes_file=None
+            notes_file=None,
+            mcp_config_file=None
         )
 
     @patch('anges.cli.run_cli_interface')
@@ -121,7 +123,8 @@ class TestCLIEntryPoint:
             logging_level='info',
             existing_stream_id=None,
             notes=None,
-            notes_file=None
+            notes_file=None,
+            mcp_config_file=None
         )
 
     @patch('anges.cli.run_web_interface')

@@ -1,3 +1,4 @@
+from anges.agents.agent_utils.mcp_actions import UseMCPToolAction
 from anges.prompt_templates.task_analyzer_prompts import TASK_ANALYZER_PROMPT_TEMPLATE
 from anges.agents.agent_utils.base_agent import BaseAgent
 from anges.agents.agent_utils.agent_actions import RunShellCMDAction, TaskCompleteAction, AgentHelpNeededAction, ReadMIMEFilesAction
@@ -22,6 +23,7 @@ class TaskAnalyzer(BaseAgent):
             AgentHelpNeededAction(),
             RunShellCMDAction(),
             ReadMIMEFilesAction(),
+            UseMCPToolAction(self.mcp_manager)
         ]
         self.agent_config = config.agents.task_analyzer
         self.max_consecutive_actions_to_summarize = self.agent_config.max_consecutive_actions_to_summarize

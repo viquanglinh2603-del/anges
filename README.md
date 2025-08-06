@@ -67,11 +67,39 @@ EOF
 export GOOGLE_API_KEY=<YOUR_GEMINI_API_KEY>
 ```
 
+#### MCP Configuration
+
+Anges supports the Model Context Protocol (MCP) for integrating external tools and services. You can configure MCP servers using a JSON configuration file:
+
+```bash
+# Create MCP configuration file
+cat > mcp_config.json <<EOF
+{
+  "filesystem": {
+    "command": "npx",
+    "args": ["-g", "@modelcontextprotocol/server-filesystem", "/path/to/directory"]
+  },
+  "sqlite": {
+    "command": "npx", 
+    "args": ["-g", "@modelcontextprotocol/server-sqlite", "/path/to/database.db"]
+  }
+}
+EOF
+
+# Use MCP configuration with CLI
+anges -q "List files using MCP" --mcp_config mcp_config.json
+
+# Or configure via web interface Settings panel
+anges ui --port 5000 --password your_password
+```
+
 ### Advanced usages
 
   * **Working Directory:** You can set the agent's working directory from the UI or CLI. This sets the default location for operations but does not enforce a strict permission boundary.
 
   * **Prefix Command:** You can configure a prefix command (e.g., `export MY_VAR=... &&`) that will be executed before every command the agent runs. This is useful for setting up a consistent environment.
+
+  * **MCP Integration:** Anges supports the Model Context Protocol (MCP) for connecting to external tools and services. You can configure MCP servers via configuration files or the web interface.
 
   * **Default Agent vs. Orchestrator:**
 
@@ -177,6 +205,7 @@ class BaseAgent:
         max_consecutive_actions_to_summarize=30,
         logging_level=logging.DEBUG,
         auto_entitle=False,
+        mcp_config=None
     ):
 ```
 
@@ -252,12 +281,13 @@ class Event:
 
 ```python
 class EventStream:
-    def __init__(self, title=None, uid=None, parent_event_stream_uids=None, agent_type=""):
+    def __init__(self, title=None, uid=None, parent_event_stream_uids=None, agent_type="", mcp_config=None):
         self.events_list = []           # Chronological event sequence
         self.event_summaries_list = []  # Summarized event ranges
         self.uid = uid                  # Unique stream identifier
         self.parent_event_stream_uids = parent_event_stream_uids  # Hierarchical relationships
         self.agent_settings = {}        # Persistent agent configuration
+        self.mcp_config = None
 ```
 
 **Key Features:**
@@ -265,6 +295,7 @@ class EventStream:
 - **Hierarchical Structure**: Support for parent-child agent relationships
 - **Event Summarization**: Automatic summarization of long event sequences
 - **Settings Management**: Persistent storage of agent configuration
+- **MCP Integration**: Configuration storage and management for Model Context Protocol servers
 
 #### Event Summarization
 
@@ -399,6 +430,11 @@ class Action:
 - **Type**: Non-visible, non-unique
 - **Purpose**: Process images, PDFs, videos using multimodal AI
 - **Capabilities**: Local files, YouTube links, content analysis
+
+**USE_MCP_TOOL**: Call external tools via Model Context Protocol
+- **Type**: Non-visible, non-unique
+- **Purpose**: Access external tools and services through MCP servers
+- **Features**: Dynamic tool discovery, standardized protocol, extensible integrations
 
 #### Action Execution Flow
 
@@ -606,6 +642,18 @@ anges --agent task_analyzer --model claude --logging debug
 #### Web Interface with Custom Configuration
 ```bash
 anges ui --host 0.0.0.0 --port 8080 --password secure_password_123
+```
+
+#### MCP Integration Examples
+```bash
+# Use MCP with filesystem server
+anges -q "List all Python files in the project using MCP filesystem" --mcp_config mcp_config.json
+
+# Use MCP with database server
+anges -q "Query the database for user information using MCP" --mcp_config mcp_config.json
+
+# Multiple MCP servers
+anges -q "Analyze data from database and save to filesystem using MCP tools" --mcp_config mcp_config.json
 ```
 
 #### Continuing Previous Sessions

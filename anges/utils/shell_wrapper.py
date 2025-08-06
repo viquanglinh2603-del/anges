@@ -3,6 +3,7 @@
 import subprocess
 import time
 import os
+import platform
 import signal
 import shlex
 from anges.config import config
@@ -54,13 +55,14 @@ def run_command(cmd, timeout=300, cmd_init_dir=".", prefix_cmd="", use_bash=True
     # Check if the command should run in the background or use nohup
     run_in_background = (cmd.strip().endswith("&") or cmd.startswith("nohup") or "#RUN_IN_BACKGROUND" in cmd) or run_in_background
 
+    preexec_fn = None if platform.system() == "Windows" else os.setsid
     process = subprocess.Popen(
         full_cmd,
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         stdin=subprocess.DEVNULL,  # Prevent interactive input
-        preexec_fn=os.setsid,  # Create a new process group
+        preexec_fn=preexec_fn,  # Create a new process group
     )
     if run_in_background:
         # Get the actual PID of the background process by using process group id
@@ -136,12 +138,14 @@ def run_command_in_docker(cmd, container="python_dev", timeout=60):
     docker_cmd = ["docker", "exec", container, "bash", "-c", cmd]
 
     start_time = time.perf_counter()
+
+    preexec_fn = None if platform.system() == "Windows" else os.setsid
     process = subprocess.Popen(
         docker_cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         stdin=subprocess.DEVNULL,  # Prevent interactive input
-        preexec_fn=os.setsid,  # Create a new process group
+        preexec_fn=preexec_fn,  # Create a new process group
     )
 
     try:

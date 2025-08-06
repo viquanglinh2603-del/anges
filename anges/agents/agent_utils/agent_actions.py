@@ -1,3 +1,4 @@
+import platform
 from anges.utils.shell_wrapper import run_command
 from anges.utils.data_handler import save_event_stream
 from anges.utils.agent_edit_file import get_agent_file_editing_operation_output
@@ -78,7 +79,20 @@ class RunShellCMDAction(Action):
         self.user_visible = False
         self.unique_action = False
         self.returning_action = False
-        self.guide_prompt = """
+        
+        # Get current platform information
+        current_platform = platform.system()
+        if current_platform == "Windows":
+            platform_info = "Windows"
+            script_types = "cmd/powershell"
+        elif current_platform == "Darwin":
+            platform_info = "macOS"
+            script_types = "bash/zsh"
+        else:  # Linux and other Unix-like
+            platform_info = "Linux/Unix"
+            script_types = "bash/sh"
+        
+        self.guide_prompt = f"""
 ### RUN_SHELL_CMD:
 **non-visible action**
 Use this action to execute a shell command.
@@ -91,35 +105,37 @@ Optional fields:
 - `run_in_background`: boolean, default false. Set true if the command should run in background.
 - `shell_cmd_timeout`: integer, max 1800 (30 minutes). Specify a timeout in seconds. Defaults to system config.
 
+**Current Platform & Script Type**: Running on {platform_info}, recommended script types: {script_types}. Consider cross-platform compatibility when possible.
+
 #### Example full response:
-{
-  "analysis": "some analysis...",
+{{
+        "analysis": "some analysis...",
   "reasoning": "We need to list current directory to check the files.",
   "actions": [
-    {
-      "action_type": "RUN_SHELL_CMD",
+    {{
+        "action_type": "RUN_SHELL_CMD",
       "command": "ls -la",
       "shell_cmd_timeout": 60
-    }
+    }}
   ]
-}
+}}
 
 #### Another example full response of running a web server in background:
-{
-  "analysis": "To verify if the web server starts correctly, we need to launch it in the background so it remains running while we perform follow-up tests.",
+{{
+        "analysis": "To verify if the web server starts correctly, we need to launch it in the background so it remains running while we perform follow-up tests.",
   "reasoning": "Running the server in background allows us to test endpoints afterward without blocking the agent. Then kill the running process.",
   "actions": [
-    {
-      "action_type": "RUN_SHELL_CMD",
+    {{
+        "action_type": "RUN_SHELL_CMD",
       "command": "python3 -m http.server 8000 & echo $! > webserver.pid",
       "run_in_background": true
-    },
-    {
-      "action_type": "RUN_SHELL_CMD",
+    }},
+    {{
+        "action_type": "RUN_SHELL_CMD",
       "command": "curl localhost:8000",
-    }
+    }}
   ]
-}
+}}
 """
 
     def handle_action_in_parsed_response(self, run_config, parsed_response_dict, action_json):

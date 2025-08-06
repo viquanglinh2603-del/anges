@@ -66,6 +66,20 @@ function useMessageHandlers(coreState, historyState) {
                 }
             }
 
+            // Get current chat's MCP configuration before submitting
+            let mcpConfig = {};
+            try {
+                const chatResponse = await fetch(`/load-chat/${currentChatId}`);
+                if (chatResponse.ok) {
+                    const chatData = await chatResponse.json();
+                    if (chatData.status === 'success' && chatData.mcp_config) {
+                        mcpConfig = chatData.mcp_config;
+                    }
+                }
+            } catch (error) {
+                console.warn('Failed to load MCP config for message submission:', error);
+            }
+
             // Now submit the message using the current chat ID (either existing or newly created)
             const response = await fetch(`/submit/${currentChatId}`, {
                 method: 'POST',
@@ -76,7 +90,8 @@ function useMessageHandlers(coreState, historyState) {
                     prefix_cmd: coreState.prefixCmd,
                     model: coreState.modelType,
                     agent_type: coreState.agentType,
-                    notes: coreState.notes
+                    notes: coreState.notes,
+                    mcp_config: mcpConfig
                 })
             });
 

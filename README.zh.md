@@ -68,11 +68,39 @@ EOF
 export GOOGLE_API_KEY=<您的GEMINI_API密钥>
 ```
 
+#### MCP 配置
+
+Anges 支持模型上下文协议（MCP）来集成外部工具和服务。您可以使用 JSON 配置文件配置 MCP 服务器：
+
+```bash
+# 创建 MCP 配置文件
+cat > mcp_config.json <<EOF
+{
+  "filesystem": {
+    "command": "npx",
+    "args": ["-g", "@modelcontextprotocol/server-filesystem", "/path/to/directory"]
+  },
+  "sqlite": {
+    "command": "npx", 
+    "args": ["-g", "@modelcontextprotocol/server-sqlite", "/path/to/database.db"]
+  }
+}
+EOF
+
+# 在 CLI 中使用 MCP 配置
+anges -q "使用 MCP 列出文件" --mcp_config mcp_config.json
+
+# 或通过 Web 界面的设置面板配置
+anges ui --port 5000 --password 您的密码
+```
+
 ### 高级用法
 
   * **工作目录：** 您可以从 UI 或 CLI 设置代理的工作目录。这设置了操作的默认位置，但不强制执行严格的权限边界。
 
   * **前缀命令：** 您可以配置前缀命令（例如，`export MY_VAR=... &&`），该命令将在代理运行的每个命令之前执行。这对于设置一致的环境很有用。
+
+  * **MCP 集成：** Anges 支持模型上下文协议（MCP），用于连接外部工具和服务。您可以通过配置文件或 Web 界面配置 MCP 服务器。
 
   * **默认代理 vs. 编排器：**
 
@@ -139,10 +167,11 @@ Anges 专注于核心功能：
   * **执行命令** 使用 `RUN_SHELL_CMD`
   * **编辑文件** 使用 `EDIT_FILE`
   * **读取多媒体内容** 使用 `READ_MIME_FILES`
+  * **调用外部工具** 使用 `USE_MCP_TOOL`
   * **任务完成** 使用 `TASK_COMPLETE`
   * **寻求帮助** 使用 `HELP_NEEDED`
 
-没有数百个专门的工具或复杂的插件架构。这五个动作涵盖了大多数工程任务。
+没有数百个专门的工具或复杂的插件架构。这六个动作涵盖了大多数工程任务。
 
 ### 2. 透明度胜过黑盒
 
@@ -367,6 +396,9 @@ anges -q "任务" --no-color
 # 设置前缀命令
 anges -q "任务" --prefix-cmd "export VAR=value &&"
 
+# 指定 MCP 配置文件
+anges -q "任务" --mcp_config /path/to/mcp_config.json
+
 # 指定事件流输出
 anges -q "任务" --event-stream-file custom_events.jsonl
 ```
@@ -395,6 +427,7 @@ anges ui --ssl-cert cert.pem --ssl-key key.pem
   * **文件浏览器：** 浏览和编辑工作目录中的文件
   * **事件流查看器：** 实时查看代理的操作和思考过程
   * **配置管理：** 通过 Web 界面调整设置
+  * **MCP 管理：** 在设置面板中管理 MCP 服务器配置，实时查看连接状态和可用工具
   * **移动友好：** 在手机和平板电脑上完全可用
 
 ### 安全注意事项
@@ -514,6 +547,19 @@ anges -q "构建一个响应式的产品展示页面，使用 HTML、CSS 和 Jav
 anges -q "创建一个 RESTful API 来管理待办事项，包含 CRUD 操作"
 ```
 
+### MCP 集成示例
+
+```bash
+# 使用 MCP 文件系统服务器
+anges -q "使用 MCP 文件系统列出项目中的所有 Python 文件" --mcp_config mcp_config.json
+
+# 使用 MCP 数据库服务器
+anges -q "使用 MCP 查询数据库获取用户信息" --mcp_config mcp_config.json
+
+# 使用多个 MCP 服务器
+anges -q "使用 MCP 工具从数据库分析数据并保存到文件系统" --mcp_config mcp_config.json
+```
+
 ## 故障排除
 
 ### 常见问题
@@ -598,6 +644,20 @@ tail -f ~/.anges/logs/anges.log
     "question": "这张图片显示了什么？",
     "inputs": ["screenshot.png"],
     "output": "analysis.txt"
+}
+```
+
+#### USE_MCP_TOOL
+通过模型上下文协议调用外部工具。
+
+```python
+{
+    "action_type": "USE_MCP_TOOL",
+    "mcp_server_name": "filesystem",
+    "tool_name": "list_directory",
+    "tool_args": {
+        "path": "/data"
+    }
 }
 ```
 

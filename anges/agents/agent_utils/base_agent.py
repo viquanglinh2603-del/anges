@@ -7,7 +7,7 @@ from anges.agents.agent_utils.event_methods import append_events_summary_if_need
 from anges.config import config
 from anges.utils.parse_response import get_valid_response_json
 from anges.agents.agent_utils.event_methods import construct_prompt_for_event_stream
-
+from anges.utils.mcp_manager import McpManager
 
 # Set up logging
 logging.basicConfig(level=logging.WARNING)
@@ -29,9 +29,14 @@ class BaseAgent:
         logging_level=logging.DEBUG,
         auto_entitle = False,
         notes = [],
+        mcp_config=None,
     ):
         self.parent_ids = parent_ids
         self.event_stream = event_stream if event_stream else EventStream(parent_event_stream_uids=parent_ids, agent_type="default_agent")
+        if mcp_config:
+            self.event_stream.mcp_config = mcp_config
+
+        self.mcp_manager = McpManager(self.event_stream.mcp_config)
 
         # Use the configured inference function from YAML if none is provided
         self.inference_func = inference_func
@@ -83,6 +88,7 @@ class BaseAgent:
             "message_handler_func": self.handle_user_visible_messages,
             "logger": self.logger,
             "agent_config": self.agent_config,
+            "mcp_manager": self.mcp_manager
         }
     
     # Handle received request - add new request event to event stream
@@ -157,7 +163,7 @@ class BaseAgent:
         registered_actions = self.registered_actions
         # Construct prompt given the event stream and parse the response
         action_type_list = [a.type for a in registered_actions]
-        action_instruction_list = [a.guide_prompt for a in registered_actions]
+        action_instruction_list = [a.guide_prompt for a in registered_actions if a.guide_prompt]
         prompt_template = self.agent_prompt_template
         prompt_action_instruction = f"Here are the actionable tags that you can use in the response (note that all any unique action can not be used along with any other actions): {action_type_list}\n" + "\n".join(action_instruction_list)
         prompt_template = prompt_template.replace("PLACEHOLDER_ACTION_INSTRUCTIONS", prompt_action_instruction)
